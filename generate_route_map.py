@@ -6,13 +6,13 @@ sys.stdout.reconfigure(encoding='utf-8')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FILES = [
-    os.path.join(BASE_DIR, 'KTX_timetable.xlsx'),
-    os.path.join(BASE_DIR, 'ITXC_timetable.xlsx'),
-    os.path.join(BASE_DIR, 'Local_timetable.xlsx'),
-    os.path.join(BASE_DIR, 'SRT_timetable.xlsx'),
+    os.path.join(BASE_DIR, 'src', 'KTX_timetable.xlsx'),
+    os.path.join(BASE_DIR, 'src', 'ITXC_timetable.xlsx'),
+    os.path.join(BASE_DIR, 'src', 'Local_timetable.xlsx'),
+    os.path.join(BASE_DIR, 'src', 'SRT_timetable.xlsx'),
 ]
 
-CSV_PATH = os.path.join(BASE_DIR, 'StationLocation_202404.csv')
+CSV_PATH = os.path.join(BASE_DIR, 'src', 'StationLocation_202404.csv')
 
 S_PAT = re.compile(r'^S\d{4}$')
 INVALID_EXACT = {
