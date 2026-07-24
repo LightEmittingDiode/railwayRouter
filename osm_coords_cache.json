@@ -1,0 +1,1184 @@
+{
+  "(Bugyeongcheon)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "(KTX)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "(Miryang)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "(SRT)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "(北永川)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "-": {
+    "lat": 37.5315323,
+    "lon": 127.0667418,
+    "source": "osm",
+    "display": "자양, 강변북로, 자양동, 자양3동, 광진구, 서울특별시, 05095, 대한민국"
+  },
+  "19:53": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "2026년 5월 15일(금)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "20:09": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "<1312열차 보기 예시>": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "<4301열차 보기 예시>": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "AngseongOncheon": {
+    "lat": 37.0921916,
+    "lon": 127.7872467,
+    "source": "osm",
+    "display": "앙성온천역, 1390-22, 가곡로, 돈산리, 충주시, 충청북도, 27302, 대한민국"
+  },
+  "Cheonan-Asan": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2006": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2029": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2036": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2084": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2098": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2100": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "D2102": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Dogo oncheon": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "EXPO": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "GamgokJanghowon": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Gimcheon(Gumi)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "ITX-마음": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "ITX-새마을": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Imseong-ri": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Jinbu(Odaesan)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Jung-ri": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "KTX-산천": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "KTX-이음": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "KTX-청룡": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "KTX_산천": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Onyang oncheon": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "PyeongtaekJije": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Seojeong-ri": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Suanbo oncheon": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Tap-ri": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Train NO.": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Train name": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "Yeosu-Expo": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "[[": {
+    "lat": 37.5315323,
+    "lon": 127.0667418,
+    "source": "osm",
+    "display": "자양, 강변북로, 자양동, 자양3동, 광진구, 서울특별시, 05095, 대한민국"
+  },
+  "`": {
+    "lat": 37.5315323,
+    "lon": 127.0667418,
+    "source": "osm",
+    "display": "자양, 강변북로, 자양동, 자양3동, 광진구, 서울특별시, 05095, 대한민국"
+  },
+  "cheonam": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "ilsin": {
+    "lat": 37.4451464,
+    "lon": 127.6890221,
+    "source": "osm",
+    "display": "일신역, 일신리길, 일신리, 양평군, 경기도, 12542, 대한민국"
+  },
+  "三 山": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "三浪津": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "三陟": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "三陟海邊": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "上鳳": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "东大邱": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "中央線 上行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "中央線 下行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "丹陽": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "乷味": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "五 松": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "五松": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "井邑": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "京釜線 上行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "京釜線 下行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "仁  州": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "仰城溫泉": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "任城里": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "備  考": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "光州松汀": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "光明": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "全南長興": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "全州": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "全羅線 上行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "全羅線 下行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "公州": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "加南": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "勿禁": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "北  蔚  山": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "北蔚山": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "南倉": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "南原": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "南省峴": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "厚浦": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "原 州": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "原州": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "合  德": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "堤川": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "墨湖": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "大田": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "大邱線 上行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "大邱線 下行": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "天安": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "가평": {
+    "lat": 37.8142439,
+    "lon": 127.5110368,
+    "source": "osm",
+    "display": "가평역, 13-42, 문화로, 달전리, 가평읍, 가평군, 경기도, 12423, 대한민국"
+  },
+  "갈매": {
+    "lat": 37.6336385,
+    "lon": 127.1142442,
+    "source": "osm",
+    "display": "갈매역, 경춘북로, 갈매동, 신내1동, 중랑구, 구리시, 경기도, 11902, 대한민국"
+  },
+  "강진": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "강촌": {
+    "lat": 37.8057173,
+    "lon": 127.6341223,
+    "source": "osm",
+    "display": "강촌역, 강촌구곡길, 남산면, 춘천시, 강원특별자치도, 24465, 대한민국"
+  },
+  "경주": {
+    "lat": 35.7982689,
+    "lon": 129.1389632,
+    "source": "osm",
+    "display": "경주, 내외로, 건천읍, 경주시, 경상북도, 38183, 대한민국"
+  },
+  "고래불": {
+    "lat": 36.6026504,
+    "lon": 129.4067475,
+    "source": "osm",
+    "display": "고래불역, 동해대로, 병곡리, 병곡면, 영덕군, 경상북도, 36404, 대한민국"
+  },
+  "군위": {
+    "lat": 36.1609561,
+    "lon": 128.7457167,
+    "source": "osm",
+    "display": "군위, 동부로, 의흥면, 군위군, 대구광역시, 39049, 대한민국"
+  },
+  "굴봉산": {
+    "lat": 37.8319697,
+    "lon": 127.5572579,
+    "source": "osm",
+    "display": "굴봉산역, 서백길, 남산면, 춘천시, 강원특별자치도, 24464, 대한민국"
+  },
+  "근덕": {
+    "lat": 37.3136408,
+    "lon": 129.2788657,
+    "source": "osm",
+    "display": "근덕, 2717, 삼척로, 근덕면, 삼척시, 강원특별자치도, 25937, 대한민국"
+  },
+  "금곡": {
+    "lat": 37.6333702,
+    "lon": 127.2025603,
+    "source": "osm",
+    "display": "금곡역(폐역), 금곡동, 율석리, 남양주시, 경기도, 대한민국"
+  },
+  "기성": {
+    "lat": 36.7903443,
+    "lon": 129.4481544,
+    "source": "osm",
+    "display": "기성역, 동해대로, 척산리, 기성면, 울진군, 경상북도, 36348, 대한민국"
+  },
+  "기장": {
+    "lat": 35.2444351,
+    "lon": 129.2188738,
+    "source": "osm",
+    "display": "기장, 86, 차성로288번길, 기장읍, 기장군, 부산광역시, 46065, 대한민국"
+  },
+  "김유정": {
+    "lat": 37.8181214,
+    "lon": 127.7144752,
+    "source": "osm",
+    "display": "김유정역, 김유정로, 신동면, 춘천시, 강원특별자치도, 24412, 대한민국"
+  },
+  "김천구미": {
+    "lat": 36.1130256,
+    "lon": 128.1806889,
+    "source": "osm",
+    "display": "김천(구미), 김천순환로, 율곡동, 옥산리, 김천시, 경상북도, 39660, 대한민국"
+  },
+  "남창": {
+    "lat": 35.4192677,
+    "lon": 129.2824686,
+    "source": "osm",
+    "display": "남창, 남창역길, 온양읍, 울주군, 울산광역시, 44974, 대한민국"
+  },
+  "남춘천": {
+    "lat": 37.8641197,
+    "lon": 127.7237738,
+    "source": "osm",
+    "display": "남춘천역, 효자로, 퇴계동, 춘천시, 강원특별자치도, 24369, 대한민국"
+  },
+  "대곡": {
+    "lat": 37.6317813,
+    "lon": 126.8102838,
+    "source": "osm",
+    "display": "대곡, 71-81, 대주로, 대장동, 능곡동, 덕양구, 고양시, 경기도, 10456, 대한"
+  },
+  "대성리": {
+    "lat": 37.683903,
+    "lon": 127.3791903,
+    "source": "osm",
+    "display": "대성리역, 경춘로, 대성리, 가평군, 경기도, 12457, 대한민국"
+  },
+  "덕소": {
+    "lat": 37.5875758,
+    "lon": 127.2086124,
+    "source": "osm",
+    "display": "덕소역, 덕소로, 덕소1리, 와부읍, 남양주시, 경기도, 12214, 대한민국"
+  },
+  "도계": {
+    "lat": 37.2293706,
+    "lon": 129.0439333,
+    "source": "osm",
+    "display": "도계역, 220, 도계로, 도계읍, 삼척시, 강원특별자치도, 25947, 대한민국"
+  },
+  "동탄": {
+    "lat": 37.2003594,
+    "lon": 127.0955764,
+    "source": "osm",
+    "display": "동탄, 지하151, 동탄역로, 여울동, 동탄신도시, 화성시, 경기도, 18478, 대한민국"
+  },
+  "동해": {
+    "lat": 37.498244,
+    "lon": 129.1238127,
+    "source": "osm",
+    "display": "동해역, 동해역광장, 송정동, 동해시, 강원특별자치도, 25786, 대한민국"
+  },
+  "마석": {
+    "lat": 37.6523223,
+    "lon": 127.3118672,
+    "source": "osm",
+    "display": "마석역, 107, 마석중앙로, 화도읍, 남양주시, 경기도, 12180, 대한민국"
+  },
+  "망우": {
+    "lat": 37.5996345,
+    "lon": 127.0918581,
+    "source": "osm",
+    "display": "망우, 상봉중앙로1다길, 상봉동, 상봉1동, 중랑구, 서울특별시, 02082, 대한민국"
+  },
+  "매일": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "매화": {
+    "lat": 36.8828432,
+    "lon": 129.4101371,
+    "source": "osm",
+    "display": "매화역, 덕신3길, 덕신리, 매화면, 울진군, 경상북도, 36339, 대한민국"
+  },
+  "문경": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "백양리": {
+    "lat": 37.8277,
+    "lon": 127.6124,
+    "source": "osm",
+    "display": "백양리역, 북한강변길, 남산면, 춘천시, 강원특별자치도, 24465, 대한민국"
+  },
+  "번호": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "별내": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "부강": {
+    "lat": 36.5318256,
+    "lon": 127.364871,
+    "source": "osm",
+    "display": "부강역, 청연로, 부강면, 세종특별자치시, 30086, 대한민국"
+  },
+  "부발": {
+    "lat": 37.2604023,
+    "lon": 127.4903284,
+    "source": "osm",
+    "display": "부발, 죽당천 산책로, 아미리, 부발읍, 이천시, 경기도, 17332, 대한민국"
+  },
+  "사릉": {
+    "lat": 37.6514946,
+    "lon": 127.1769007,
+    "source": "osm",
+    "display": "사릉역, 63, 진건우회로, 진건읍, 남양주시, 경기도, 12140, 대한민국"
+  },
+  "살미": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "삼척": {
+    "lat": 37.4298811,
+    "lon": 129.1785881,
+    "source": "osm",
+    "display": "삼척, 13, 중앙로, 사직동, 남양동, 삼척시, 강원특별자치도, 25930, 대한민국"
+  },
+  "삽교": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "상봉": {
+    "lat": 37.5970314,
+    "lon": 127.0856555,
+    "source": "osm",
+    "display": "상봉, 297, 망우로, 상봉동, 상봉1동, 중랑구, 서울특별시, 02098, 대한민국"
+  },
+  "상천": {
+    "lat": 37.770361,
+    "lon": 127.4542068,
+    "source": "osm",
+    "display": "상천역, 상천역로, 상천리, 가평군, 경기도, 12449, 대한민국"
+  },
+  "서빙고": {
+    "lat": 37.5202215,
+    "lon": 126.9906787,
+    "source": "osm",
+    "display": "서빙고역, 서빙고동, 용산구, 서울특별시, 04384, 대한민국"
+  },
+  "서정리": {
+    "lat": 37.0567853,
+    "lon": 127.0536576,
+    "source": "osm",
+    "display": "서정리역, 탄현로, 장당동, 송탄, 고덕동, 평택시, 경기도, 17783, 대한민국"
+  },
+  "서화성": {
+    "lat": 37.2488342,
+    "lon": 126.78645,
+    "source": "osm",
+    "display": "서화성역, 송산비봉로, 남양읍, 만세구, 화성시, 경기도, 18248, 대한민국"
+  },
+  "석포": {
+    "lat": 37.044397,
+    "lon": 129.06187,
+    "source": "osm",
+    "display": "석포역, 석포로, 석포면, 봉화군, 경상북도, 36272, 대한민국"
+  },
+  "성환": {
+    "lat": 36.9156153,
+    "lon": 127.1281269,
+    "source": "osm",
+    "display": "성환역, 성환1로, 성환읍, 서북구, 천안시, 충청남도, 31016, 대한민국"
+  },
+  "센텀": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "송정": {
+    "lat": 37.56129,
+    "lon": 126.80932,
+    "source": "osm",
+    "display": "송정역, 공항대로, 공항동, 강서구, 서울특별시, 07619, 대한민국"
+  },
+  "송추": {
+    "lat": 37.7207922,
+    "lon": 126.9794074,
+    "source": "osm",
+    "display": "송추, 가마골로, 장흥면, 양주시, 경기도, 11522, 대한민국"
+  },
+  "수서": {
+    "lat": 37.488737,
+    "lon": 127.0998954,
+    "source": "osm",
+    "display": "수서역, 밤고개로, 수서동, 강남구, 서울특별시, 06347, 대한민국"
+  },
+  "수안보온천": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "신내": {
+    "lat": 37.6126059,
+    "lon": 127.1033244,
+    "source": "osm",
+    "display": "신내역, 20, 신내역로, 신내1동, 중랑구, 서울특별시, 02056, 대한민국"
+  },
+  "신동": {
+    "lat": 35.9554422,
+    "lon": 128.4861116,
+    "source": "osm",
+    "display": "신동, 신동로, 신리, 지천면, 칠곡군, 경상북도, 39864, 대한민국"
+  },
+  "신례원": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "신보성": {
+    "lat": 34.7596161,
+    "lon": 127.0856858,
+    "source": "osm",
+    "display": "신보성역, 흥성로, 보성읍, 보성군, 전라남도, 59457, 대한민국"
+  },
+  "신창": {
+    "lat": 36.7697423,
+    "lon": 126.9501194,
+    "source": "osm",
+    "display": "신창역, 행목로, 행목리, 아산시, 충청남도, 31533, 대한민국"
+  },
+  "신해운대": {
+    "lat": 35.1813239,
+    "lon": 129.1771793,
+    "source": "osm",
+    "display": "동해선 신해운대역, 부산포항고속도로, 좌동, 좌4동, 해운대구, 부산광역시, 48066, "
+  },
+  "쌍룡": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "안양": {
+    "lat": 37.4023231,
+    "lon": 126.9212284,
+    "source": "osm",
+    "display": "안양역, 만안로, 안양동, 만안구, 안양시, 경기도, 13991, 대한민국"
+  },
+  "안중": {
+    "lat": 36.9719691,
+    "lon": 126.9385092,
+    "source": "osm",
+    "display": "안중, 안중역로, 송담리, 평택시, 경기도, 17942, 대한민국"
+  },
+  "약목": {
+    "lat": 36.0375533,
+    "lon": 128.3643256,
+    "source": "osm",
+    "display": "약목, 칠곡대로, 복성리, 약목면, 칠곡군, 경상북도, 39823, 대한민국"
+  },
+  "양원": {
+    "lat": 37.6065818,
+    "lon": 127.1079346,
+    "source": "osm",
+    "display": "양원, 양원역로10길, 망우동, 망우본동, 중랑구, 서울특별시, 02264, 대한민국"
+  },
+  "양평": {
+    "lat": 37.4928474,
+    "lon": 127.4918972,
+    "source": "osm",
+    "display": "양평, 관문길, 양평읍, 양평군, 경기도, 12552, 대한민국"
+  },
+  "여수": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "연계열번": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "연풍": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "영암": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "영해": {
+    "lat": 36.5383289,
+    "lon": 129.3965853,
+    "source": "osm",
+    "display": "영해역, 동해대로, 벌영리, 영해면, 영덕군, 경상북도, 36413, 대한민국"
+  },
+  "예미": {
+    "lat": 37.2124513,
+    "lon": 128.6483633,
+    "source": "osm",
+    "display": "예미역, 함백로, 조동리, 신동읍, 정선군, 강원특별자치도, 26142, 대한민국"
+  },
+  "오산": {
+    "lat": 37.144051,
+    "lon": 127.068628,
+    "source": "osm",
+    "display": "오산역.오산터미널, 오산로, 오산동, 오산시, 경기도, 18137, 대한민국"
+  },
+  "옥수": {
+    "lat": 37.5407675,
+    "lon": 127.0191526,
+    "source": "osm",
+    "display": "옥수역, 뚝섬로, 옥수동, 성동구, 서울특별시, 04739, 대한민국"
+  },
+  "옥원": {
+    "lat": 37.1838947,
+    "lon": 129.3238755,
+    "source": "osm",
+    "display": "옥원, 94, 옥원이천로, 원덕읍, 삼척시, 강원특별자치도, 25957, 대한민국"
+  },
+  "왕십리": {
+    "lat": 37.5611294,
+    "lon": 127.0354654,
+    "source": "osm",
+    "display": "왕십리역, 왕십리광장로, 행당동, 행당1동, 성동구, 서울특별시, 04744, 대한민국"
+  },
+  "용문": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "운행일": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "울진": {
+    "lat": 36.9817408,
+    "lon": 129.395474,
+    "source": "osm",
+    "display": "울진, 울진북로, 읍남리, 울진읍, 울진군, 경상북도, 36326, 대한민국"
+  },
+  "원릉": {
+    "lat": 37.6626396,
+    "lon": 126.8399564,
+    "source": "osm",
+    "display": "원릉, 원당로, 성사동, 성사1동, 덕양구, 고양시, 경기도, 10294, 대한민국"
+  },
+  "음성": {
+    "lat": 36.9260488,
+    "lon": 127.7039671,
+    "source": "osm",
+    "display": "음성역, 한불로, 석인리, 음성군, 충청북도, 27698, 대한민국"
+  },
+  "응봉": {
+    "lat": 37.55198,
+    "lon": 127.03527,
+    "source": "osm",
+    "display": "응봉역, 고산자로, 응봉동, 성수1가2동, 성동구, 서울특별시, 04747, 대한민국"
+  },
+  "의정부": {
+    "lat": 37.7386954,
+    "lon": 127.0459145,
+    "source": "osm",
+    "display": "의정부역, 525, 평화로, 의정부동, 의정부1동, 의정부시, 경기도, 11696, 대한민"
+  },
+  "이촌": {
+    "lat": 37.5223012,
+    "lon": 126.9739562,
+    "source": "osm",
+    "display": "이촌역, 이촌로65가길, 이촌동, 이촌1동, 용산구, 서울특별시, 04423, 대한민국"
+  },
+  "인주": {
+    "lat": 36.8383958,
+    "lon": 126.8814215,
+    "source": "osm",
+    "display": "인주역, 현대로, 금성리, 아산시, 충청남도, 31439, 대한민국"
+  },
+  "일영": {
+    "lat": 37.7005712,
+    "lon": 126.9289695,
+    "source": "osm",
+    "display": "일영, 일영로647번길, 장흥면, 양주시, 경기도, 11520, 대한민국"
+  },
+  "임원": {
+    "lat": 37.2401169,
+    "lon": 129.3265078,
+    "source": "osm",
+    "display": "임원, 266, 임원안길, 원덕읍, 삼척시, 강원특별자치도, 25956, 대한민국"
+  },
+  "장동": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "장흥": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "전남장흥": {
+    "lat": 34.6692098,
+    "lon": 126.9107154,
+    "source": "osm",
+    "display": "전남장흥역, 녹색로, 평화리, 장흥군, 전남광주통합특별시, 59330, 대한민국"
+  },
+  "죽변": {
+    "lat": 37.0484381,
+    "lon": 129.4044023,
+    "source": "osm",
+    "display": "죽변역, 동해대로, 후정리, 죽변면, 울진군, 경상북도, 36315, 대한민국"
+  },
+  "중랑": {
+    "lat": 37.5949759,
+    "lon": 127.0763112,
+    "source": "osm",
+    "display": "중랑, 9, 중랑역로, 중화동, 중화2동, 중랑구, 서울특별시, 02110, 대한민국"
+  },
+  "중앙": {
+    "lat": 37.2879031,
+    "lon": 127.0567555,
+    "source": "osm",
+    "display": "힐스테이트 광교 중앙역, 26, 영통구, 수원시, 경기도, 16508, 대한민국"
+  },
+  "지제": {
+    "lat": 37.0056407,
+    "lon": 127.0931783,
+    "source": "osm",
+    "display": "지제역 푸르지오 엘리아츠, 비전동, 평택시, 경기도, 대한민국"
+  },
+  "천마산": {
+    "lat": 37.6586348,
+    "lon": 127.2863478,
+    "source": "osm",
+    "display": "천마산역 주차장, 경춘선 자전거길, 화도읍, 남양주시, 경기도, 12168, 대한민국"
+  },
+  "철암": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "청주": {
+    "lat": 36.6469358,
+    "lon": 127.3929933,
+    "source": "osm",
+    "display": "청주역, 청주역로358번길, 서촌동, 흥덕구, 청주시, 충청북도, 28113, 대한민국"
+  },
+  "청평": {
+    "lat": 37.7362463,
+    "lon": 127.4268022,
+    "source": "osm",
+    "display": "청평역 (현리, 수목원방면), 청평역로, 청평리, 가평군, 경기도, 12452, 대한민국"
+  },
+  "추암": {
+    "lat": 37.4786042,
+    "lon": 129.1573425,
+    "source": "osm",
+    "display": "추암, 동해안 자전거길, 추암동, 북평동, 동해시, 강원특별자치도, 25790, 대한민국"
+  },
+  "춘천": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "퇴계원": {
+    "lat": 37.647842,
+    "lon": 127.1441833,
+    "source": "osm",
+    "display": "퇴계원역.엘리시아아파트, 경춘북로, 퇴계원읍, 남양주시, 경기도, 12126, 대한민국"
+  },
+  "판교(경기)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "편성": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "평내호": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "평택지제": {
+    "lat": 37.0186697,
+    "lon": 127.0708979,
+    "source": "osm",
+    "display": "평택지제역, 경기대로, 지제동, 여염리, 평택시, 경기도, 17824, 대한민국"
+  },
+  "평해": {
+    "lat": 36.7254981,
+    "lon": 129.4453354,
+    "source": "osm",
+    "display": "평해역, 월송정로, 평해리, 평해읍, 울진군, 경상북도, 36366, 대한민국"
+  },
+  "한남": {
+    "lat": 37.5294298,
+    "lon": 127.0092073,
+    "source": "osm",
+    "display": "한남역, 서빙고로, 한남동, 용산구, 서울특별시, 04410, 대한민국"
+  },
+  "합덕": {
+    "lat": 36.7964073,
+    "lon": 126.799044,
+    "source": "osm",
+    "display": "합덕역, 평야5로, 합덕리, 당진시, 충청남도, 31813, 대한민국"
+  },
+  "해남": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "향남": {
+    "lat": 37.1226769,
+    "lon": 126.9135018,
+    "source": "osm",
+    "display": "향남역, 행정서로, 만세구, 화성시, 경기도, 18599, 대한민국"
+  },
+  "홍성(도착)": {
+    "lat": null,
+    "lon": null,
+    "source": "osm",
+    "display": ""
+  },
+  "화성시청": {
+    "lat": 37.1889693,
+    "lon": 126.8209755,
+    "source": "osm",
+    "display": "화성시청역, 남양로, 남양읍, 만세구, 화성시, 경기도, 18269, 대한민국"
+  },
+  "회기": {
+    "lat": 37.5894974,
+    "lon": 127.0576239,
+    "source": "osm",
+    "display": "회기, 196, 회기로, 휘경1동, 동대문구, 서울특별시, 02446, 대한민국"
+  },
+  "후포": {
+    "lat": 36.6832255,
+    "lon": 129.4367291,
+    "source": "osm",
+    "display": "후포, 삼덕로, 삼율리, 후포면, 울진군, 경상북도, 36370, 대한민국"
+  },
+  "흥부": {
+    "lat": 37.0971741,
+    "lon": 129.3691841,
+    "source": "osm",
+    "display": "흥부, 동해안 자전거길, 고목리, 북면, 울진군, 경상북도, 36305, 대한민국"
+  }
+}
