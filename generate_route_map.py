@@ -692,6 +692,11 @@ function screenToWorld(sx, sy) {{
   return [(sx - canvas.width/2 - camX)/scale, (sy - canvas.height/2 - camY)/scale];
 }}
 
+function canvasPoint(event) {{
+  const rect=canvas.getBoundingClientRect();
+  return {{x:event.clientX-rect.left, y:event.clientY-rect.top}};
+}}
+
 function draw() {{
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -822,7 +827,8 @@ container.addEventListener('mousemove', e => {{
     draw(); return;
   }}
   // 호버 툴팁
-  const [wx,wy]=screenToWorld(e.clientX,e.clientY);
+  const point=canvasPoint(e);
+  const [wx,wy]=screenToWorld(point.x,point.y);
   let found=null, bestD=Infinity;
   NODES.forEach(n => {{
     const pos=nodePos[n.id]; if(!pos) return;
@@ -847,7 +853,8 @@ container.addEventListener('mouseup', e => {{
   const moved=Math.abs(e.clientX-dragStart.x)+Math.abs(e.clientY-dragStart.y);
   isDragging=false;
   if(moved<6) {{
-    const [wx,wy]=screenToWorld(e.clientX,e.clientY);
+    const point=canvasPoint(e);
+    const [wx,wy]=screenToWorld(point.x,point.y);
     let found=null, bestD=Infinity;
     NODES.forEach(n=>{{
       const pos=nodePos[n.id]; if(!pos) return;
@@ -860,6 +867,7 @@ container.addEventListener('mouseup', e => {{
     
     if(found){{
       showStationDetail(found);
+      assignStationFromMap(found);
       const pos=nodePos[found.id];
       if(pos) {{
         const [tx,ty]=worldToScreen(pos.x,pos.y);
@@ -878,11 +886,8 @@ container.addEventListener('mouseleave',()=>{{
 container.addEventListener('wheel',e=>{{
   e.preventDefault();
   const f=e.deltaY>0?0.85:1.18;
-  const ns=Math.max(0.12,Math.min(6,scale*f));
-  const mx=e.clientX, my=e.clientY;
-  camX=mx-(mx-camX)*ns/scale;
-  camY=my-(my-camY)*ns/scale;
-  scale=ns; draw();
+  const point=canvasPoint(e);
+  zoomAroundPoint(point.x,point.y,f);
 }},{{passive:false}});
 
 // 검색
@@ -973,9 +978,17 @@ function toggleLabels(){{
   draw();
 }}
 
-function zoomAtCenter(factor) {{
-  scale=Math.max(.12,Math.min(6,scale*factor));
+function zoomAroundPoint(screenX,screenY,factor) {{
+  const [worldX,worldY]=screenToWorld(screenX,screenY);
+  const nextScale=Math.max(.12,Math.min(6,scale*factor));
+  scale=nextScale;
+  camX=screenX-canvas.width/2-worldX*scale;
+  camY=screenY-canvas.height/2-worldY*scale;
   draw();
+}}
+
+function zoomAtCenter(factor) {{
+  zoomAroundPoint(canvas.width/2,canvas.height/2,factor);
 }}
 
 document.getElementById('fit-btn').addEventListener('click',fitAll);
@@ -1054,6 +1067,10 @@ custom_css = """
 .search-result-item { padding: 10px 12px; }
 #route-panel { order: 2; padding: 16px; border-bottom: 0; flex: 1; scrollbar-width: thin; scrollbar-color: #2a4267 transparent; }
 #route-panel h3 { font-size: 13px; color: #91a4c3; margin-bottom: 10px; letter-spacing: .02em; }
+#click-guide { margin:-2px 0 12px; padding:9px 11px; border:1px solid #263a59; border-radius:9px; background:#0d192c; color:#91a4c3; font-size:11px; line-height:1.45; }
+#click-guide strong { color:#38bdf8; }
+#click-guide[data-step="arrival"] strong { color:#f472b6; }
+#click-guide[data-step="complete"] { border-color:#28627a; color:#c8d7e9; }
 .waypoint-wrap { position: relative; gap: 8px; }
 .waypoint-input { min-height: 44px; padding: 10px 12px 10px 38px; background: #111f36; border-color: #263a59; border-radius: 10px; color: #f8fbff; font-size: 14px; }
 .waypoint-input:focus { border-color: #38bdf8; background:#142642; }
@@ -1104,6 +1121,7 @@ custom_css = """
 ui_html = """
   <div id="route-panel">
     <h3>경로 검색</h3>
+    <p id="click-guide" data-step="departure"><strong>① 출발역</strong>을 지도에서 클릭하세요. 다음 클릭은 도착역으로 지정됩니다.</p>
     <div id="waypoints" class="waypoint-wrap">
       <div class="waypoint-row">
         <input type="text" class="waypoint-input" placeholder="출발역" list="station-options" autocomplete="off">
@@ -1374,6 +1392,39 @@ function formatClock(minute) {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
+function updateClickGuide(step, message) {
+  const guide = document.getElementById('click-guide');
+  if (!guide) return;
+  guide.dataset.step = step;
+  guide.innerHTML = message;
+}
+
+function assignStationFromMap(station) {
+  const inputs = document.querySelectorAll('.waypoint-input');
+  if (inputs.length < 2) return;
+  const departure = inputs[0];
+  const arrival = inputs[inputs.length - 1];
+
+  if (!departure.value.trim() || arrival.value.trim()) {
+    departure.value = station.id;
+    arrival.value = '';
+    document.getElementById('route-result').innerHTML = '';
+    const exportButton = document.getElementById('export-itinerary-btn');
+    if (exportButton) exportButton.style.display = 'none';
+    highlightPath(new Set(), new Set());
+    updateClickGuide('arrival', `<strong>② 도착역</strong>을 클릭하세요. 출발역은 ${escapeHtml(station.id)}역입니다.`);
+    return;
+  }
+
+  if (departure.value.trim() === station.id) {
+    updateClickGuide('arrival', `<strong>② 도착역</strong>은 출발역과 다른 역을 선택하세요.`);
+    return;
+  }
+
+  arrival.value = station.id;
+  updateClickGuide('complete', `<strong>${escapeHtml(departure.value)} → ${escapeHtml(station.id)}</strong> 경로가 지정됐습니다. 시간과 기준을 확인한 뒤 경로 찾기를 누르세요.`);
+}
+
 function showStationDetail(station) {
   const panel = document.getElementById('station-detail');
   if (!panel || !station) return;
@@ -1444,6 +1495,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const first = inputs[0].value;
     inputs[0].value = inputs[inputs.length - 1].value;
     inputs[inputs.length - 1].value = first;
+    if (inputs[0].value && inputs[inputs.length - 1].value) {
+      updateClickGuide('complete', `<strong>${escapeHtml(inputs[0].value)} → ${escapeHtml(inputs[inputs.length - 1].value)}</strong> 순서로 변경했습니다.`);
+    }
   });
   
   document.getElementById('find-route-btn').addEventListener('click', () => {
@@ -1545,6 +1599,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     if (searchInput) searchInput.value = '';
     highlightPath(new Set(), new Set());
+    updateClickGuide('departure', '<strong>① 출발역</strong>을 지도에서 클릭하세요. 다음 클릭은 도착역으로 지정됩니다.');
     setCurrentTime();
     fitAll();
   });
