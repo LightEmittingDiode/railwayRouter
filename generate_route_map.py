@@ -382,7 +382,7 @@ with open(CSV_PATH, 'r', encoding='euc-kr', errors='ignore') as f:
         except: pass
 
 # OSM 캐시로 누락 좌표 보완 (fetch_osm_coords.py 실행 후 생성됨)
-OSM_CACHE_FILE = os.path.join(BASE_DIR, 'osm_coords_cache.json')
+OSM_CACHE_FILE = os.path.join(BASE_DIR, 'src', 'osm_coords_cache.json')
 osm_used = 0
 if os.path.exists(OSM_CACHE_FILE):
     with open(OSM_CACHE_FILE, 'r', encoding='utf-8') as f:
@@ -417,6 +417,8 @@ station_coords['삽교'] = {'lat': 36.6805, 'lon': 126.7583}
 station_coords['신례원'] = {'lat': 36.7511, 'lon': 126.8362}
 station_coords['여수'] = {'lat': 34.7555, 'lon': 127.7492}
 station_coords['별내'] = {'lat': 37.6430, 'lon': 127.1260}
+station_coords['살미'] = {'lat': 36.9024318, 'lon': 127.9602931}
+station_coords['쌍룡'] = {'lat': 37.17464573, 'lon': 128.3284968}
 
 # CSV에 좌표가 잘못 기재되어 삐죽하게 튀어나오는 역들 수동 교정
 station_coords['나주'] = {'lat': 35.0139, 'lon': 126.7175}
@@ -444,24 +446,53 @@ ktx_types = {'KTX경부','KTX호남','KTX강릉','KTX중부','KTX기타','SRT'}
 hub_stations = {'서울','용산','영등포','청량리','행신','수원','대전','동대구','부산','광명',
                 '오송','익산','광주송정','목포','강릉','부전','포항','동해','여수엑스포','수서','동탄'}
 
+station_neighbors = collections.defaultdict(set)
+for (a, b) in edge_map:
+    station_neighbors[a].add(b)
+    station_neighbors[b].add(a)
+
+station_services = collections.defaultdict(lambda: {
+    'trains': set(), 'types': set(), 'first': None, 'last': None
+})
+for trip in all_trips:
+    trip_key = f"{trip.train_type}:{trip.train_no}"
+    for stop in trip.stops:
+        service = station_services[stop['name']]
+        service['trains'].add(trip_key)
+        service['types'].add(trip.train_type)
+        if stop['time'] is not None:
+            minute = stop['time'] % (24 * 60)
+            service['first'] = minute if service['first'] is None else min(service['first'], minute)
+            service['last'] = minute if service['last'] is None else max(service['last'], minute)
+
 nodes_data = []
-for name, types in node_lines.items():
+for name, types in sorted(node_lines.items()):
     coord = station_coords.get(name)
     pt = primary_type(types)
+    service = station_services[name]
     nodes_data.append({
         'id': name,
         'lat': coord['lat'] if coord else None,
         'lon': coord['lon'] if coord else None,
         'primary': pt,
-        'types': list(types),
+        'types': [p for p in PRIORITY if p in types],
         'isHub': name in hub_stations,
         'isMajor': bool(ktx_types & types),
-        'hasCoord': coord is not None
+        'hasCoord': coord is not None,
+        'neighbors': sorted(station_neighbors[name]),
+        'degree': len(station_neighbors[name]),
+        'trainCount': len(service['trains']),
+        'firstTime': service['first'],
+        'lastTime': service['last']
     })
 
 edges_data = []
-for (a,b), types_set in edge_map.items():
+for (a,b), types_set in sorted(edge_map.items()):
     edges_data.append({'from':a,'to':b,'lines':[p for p in PRIORITY if p in types_set]})
+
+missing_coord_names = sorted(n['id'] for n in nodes_data if not n['hasCoord'])
+if missing_coord_names:
+    print(f"⚠️  좌표 없는 역 {len(missing_coord_names)}개: {', '.join(missing_coord_names)}")
 
 # ─────────────────────────────────────────
 # 5. HTML Canvas 노선도 생성
@@ -489,25 +520,29 @@ html = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Railway Router</title>
 <style>
 * {{ box-sizing:border-box; margin:0; padding:0; }}
-body {{ background:#1a1a2e; font-family:'Noto Sans KR',sans-serif; overflow:hidden; }}
-#canvas-container {{ position:fixed; top:0; left:0; right:0; bottom:0; cursor:grab; }}
+html, body {{ width:100%; height:100%; }}
+body {{ background:#08101f; font-family:'Pretendard','Noto Sans KR','Malgun Gothic',sans-serif; overflow:hidden; color:#e7edf7; }}
+button, input, select {{ font:inherit; }}
+button:focus-visible, input:focus-visible, select:focus-visible {{ outline:3px solid rgba(56,189,248,.42); outline-offset:2px; }}
+#canvas-container {{ position:fixed; top:0; left:400px; right:0; bottom:0; cursor:grab; transition:left .18s ease; }}
 #canvas-container:active {{ cursor:grabbing; }}
 #mainCanvas {{ display:block; width:100%; height:100%; }}
 #sidebar {{
   position:fixed; top:0; left:0; bottom:0; width:400px; border-right:1px solid #0f3460; border-left:none;
-  background:#16213e; color:#e0e0e0;
+  background:rgba(10,20,38,.97); color:#e7edf7;
   display:flex; flex-direction:column;
-  border-left:1px solid #0f3460;
+  box-shadow:12px 0 36px rgba(0,0,0,.24);
 }}
 #sidebar-header {{
-  padding:16px; background:linear-gradient(135deg,#0f3460,#16213e);
+  padding:22px 20px 16px; background:linear-gradient(145deg,#10264a,#0a1426 72%);
   border-bottom:1px solid #0f3460;
 }}
-#sidebar-header h1 {{ font-size:16px; color:#e94560; font-weight:700; }}
-#sidebar-header p {{ font-size:11px; color:#778; margin-top:3px; }}
+#sidebar-header h1 {{ font-size:20px; color:#f8fbff; font-weight:800; letter-spacing:-.04em; }}
+#sidebar-header p {{ font-size:12px; color:#91a4c3; margin-top:7px; }}
 #search-wrap {{ padding:10px 14px; border-bottom:1px solid #0f3460; }}
 #search-input {{
   width:100%; padding:8px 12px;
@@ -539,11 +574,15 @@ body {{ background:#1a1a2e; font-family:'Noto Sans KR',sans-serif; overflow:hidd
 .ctrl-btn:hover {{ background:#1a4a80; color:white; }}
 .ctrl-btn.active {{ background:#e94560; color:white; border-color:#e94560; }}
 #zoom-badge {{
-  position:fixed; bottom:20px; right:20px;
+  position:fixed; bottom:24px; right:24px;
   background:rgba(22,33,62,0.9); color:#aab;
   border:1px solid #0f3460; padding:4px 10px;
   border-radius:12px; font-size:11px; z-index:50;
 }}
+#map-controls {{ position:fixed; right:24px; top:24px; z-index:60; display:flex; gap:8px; padding:8px; border:1px solid rgba(148,163,184,.2); border-radius:14px; background:rgba(8,16,31,.82); box-shadow:0 10px 30px rgba(0,0,0,.25); backdrop-filter:blur(10px); }}
+.map-btn {{ min-width:38px; height:38px; padding:0 11px; border:1px solid rgba(148,163,184,.2); border-radius:9px; background:#14233d; color:#d9e7f8; cursor:pointer; font-size:12px; font-weight:700; }}
+.map-btn:hover {{ background:#1d3558; border-color:#38bdf8; }}
+.map-btn.active {{ background:#0ea5e9; border-color:#38bdf8; color:#fff; }}
 #tooltip {{
   position:fixed; pointer-events:none;
   background:rgba(22,33,62,0.95); border:1px solid #e94560;
@@ -567,6 +606,14 @@ body {{ background:#1a1a2e; font-family:'Noto Sans KR',sans-serif; overflow:hidd
 <body>
 
 <div id="canvas-container"><canvas id="mainCanvas"></canvas></div>
+
+<div id="map-controls" aria-label="지도 제어">
+  <button class="map-btn" id="zoom-out-btn" title="축소" aria-label="지도 축소">−</button>
+  <button class="map-btn" id="fit-btn" title="전체 보기">전체</button>
+  <button class="map-btn" id="zoom-in-btn" title="확대" aria-label="지도 확대">＋</button>
+  <button class="map-btn active" id="label-btn" title="역 이름 표시">역명</button>
+  <button class="map-btn" id="lod-btn" title="주요 노선만 표시">간략</button>
+</div>
 
 <div id="sidebar">
   <div id="sidebar-header">
@@ -630,6 +677,7 @@ let camX=0, camY=0, scale=1;
 let isDragging=false, dragStart={{x:0,y:0}}, camStart={{x:0,y:0}};
 let highlightNode=null, searchQuery='';
 let simpleLOD=false, showLabels=true;
+let highlightedPathNodes=new Set(), highlightedPathEdges=new Set();
 
 function resize() {{
   canvas.width = container.clientWidth;
@@ -688,16 +736,18 @@ function draw() {{
       const nx = len>0 ? -dy/len*offset : 0;
       const ny = len>0 ?  dx/len*offset : 0;
 
-      const isHL = highlightNode && (e.from===highlightNode||e.to===highlightNode);
+      const edgeId = e.from < e.to ? `${{e.from}}-${{e.to}}` : `${{e.to}}-${{e.from}}`;
+      const isPath = highlightedPathEdges.has(edgeId);
+      const isHL = isPath || (highlightNode && (e.from===highlightNode||e.to===highlightNode));
       const isSQ = searchQuery && (e.from.includes(searchQuery)||e.to.includes(searchQuery));
 
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(sx1+nx, sy1+ny);
       ctx.lineTo(sx2+nx, sy2+ny);
-      ctx.strokeStyle = cfg.color;
-      ctx.lineWidth = Math.max(cfg.width*scale*(isHL?2.5:1), isKTX?1.5:0.8);
-      ctx.globalAlpha = searchQuery?(isSQ?0.95:0.08):(highlightNode?(isHL?0.95:0.15):0.85);
+      ctx.strokeStyle = isPath ? '#67e8f9' : cfg.color;
+      ctx.lineWidth = Math.max(cfg.width*scale*(isHL?2.35:1), isKTX?1.5:0.8);
+      ctx.globalAlpha = highlightedPathEdges.size?(isPath?1:.1):searchQuery?(isSQ?0.95:0.08):(highlightNode?(isHL?0.95:0.15):0.85);
       if (cfg.dash&&cfg.dash.length) ctx.setLineDash(cfg.dash.map(d=>d*Math.max(scale,0.4)));
       else ctx.setLineDash([]);
       ctx.stroke();
@@ -717,24 +767,25 @@ function draw() {{
 
     const cfg = LINE_CFG[n.primary]||LINE_CFG['무궁화'];
     const isSelected = n.id===highlightNode;
+    const isPath = highlightedPathNodes.has(n.id);
     const isSearched = searchQuery && n.id.includes(searchQuery);
     const baseR = n.isHub?10:n.isMajor?7:4;
     const r = Math.max(baseR*Math.min(scale,1.5), n.isHub?4:n.isMajor?2.5:1.5);
 
-    const alpha = searchQuery?(isSearched?1:0.1):(highlightNode?(isSelected?1:0.2):1);
+    const alpha = highlightedPathNodes.size?(isPath?1:.14):searchQuery?(isSearched?1:0.1):(highlightNode?(isSelected?1:0.24):1);
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    if (isSelected) {{
+    if (isSelected || isPath) {{
       ctx.beginPath(); ctx.arc(sx,sy,r+6,0,Math.PI*2);
-      ctx.strokeStyle='#FFD700'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.strokeStyle=isPath?'#67e8f9':'#FFD700'; ctx.lineWidth=2.5; ctx.stroke();
     }}
 
     ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
     if (n.isHub || n.isMajor) {{
       ctx.fillStyle='#1a1a2e'; ctx.fill();
-      ctx.strokeStyle = isSelected?'#FFD700':cfg.color;
+      ctx.strokeStyle = isPath?'#67e8f9':isSelected?'#FFD700':cfg.color;
       ctx.lineWidth = Math.max(r*0.55,2);
       ctx.stroke();
     }} else {{
@@ -749,7 +800,7 @@ function draw() {{
       const lx=sx, ly=sy+r+2;
       ctx.strokeStyle='#0d0d1a'; ctx.lineWidth=3.5; ctx.lineJoin='round';
       ctx.strokeText(n.id,lx,ly);
-      ctx.fillStyle = isSelected?'#FFD700':isSearched?'#FFD700':n.isHub?'#fff':n.isMajor?'#ddd':'#aaa';
+      ctx.fillStyle = isPath?'#cffafe':isSelected?'#FFD700':isSearched?'#FFD700':n.isHub?'#fff':n.isMajor?'#ddd':'#aaa';
       ctx.fillText(n.id,lx,ly);
     }}
     ctx.restore();
@@ -784,7 +835,7 @@ container.addEventListener('mousemove', e => {{
     tip.style.display='block';
     tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px';
     const cfg=LINE_CFG[found.primary]||{{}};
-    tip.innerHTML=`<strong style="color:${{cfg.color||'#fff'}}">${{found.id}}</strong><br>${{found.types.map(t=>LINE_CFG[t]?.label||t).join(' · ')}}`;
+    tip.innerHTML=`<strong style="color:${{cfg.color||'#fff'}}">${{found.id}}역</strong><br>${{found.types.map(t=>LINE_CFG[t]?.label||t).join(' · ')}}<br><span style="color:#91a4c3">인접 ${{found.degree}}개 · 운행 ${{found.trainCount}}편</span>`;
     canvas.style.cursor='pointer';
   }} else {{
     tip.style.display='none';
@@ -808,17 +859,7 @@ container.addEventListener('mouseup', e => {{
     
     
     if(found){{
-      
-      
-      
-      
-      found.types.forEach(t=>{{
-        const cfg=LINE_CFG[t]; if(!cfg) return;
-        const b=document.createElement('span');
-        b.className='badge'; b.style.background=cfg.color; b.textContent=cfg.label;
-        
-      }});
-      
+      showStationDetail(found);
       const pos=nodePos[found.id];
       if(pos) {{
         const [tx,ty]=worldToScreen(pos.x,pos.y);
@@ -880,16 +921,7 @@ function selectStation(n) {{
   searchInput.value=n.id;
   searchResults.style.display='none';
   
-  
-  
-  
-  
-  n.types.forEach(t=>{{
-    const cfg=LINE_CFG[t]; if(!cfg) return;
-    const b=document.createElement('span');
-    b.className='badge'; b.style.background=cfg.color; b.textContent=cfg.label;
-    
-  }});
+  showStationDetail(n);
   
   const pos=nodePos[n.id];
   if(pos){{
@@ -929,7 +961,7 @@ function toggleLOD(){{
   simpleLOD=!simpleLOD;
   const btn=document.getElementById('lod-btn'); if(!btn)return;
   btn.classList.toggle('active',simpleLOD);
-  btn.textContent=simpleLOD?'간략 모드 ✓':'간략 모드';
+  btn.textContent='간략';
   draw();
 }}
 
@@ -937,9 +969,20 @@ function toggleLabels(){{
   showLabels=!showLabels;
   const btn=document.getElementById('label-btn'); if(!btn)return;
   btn.classList.toggle('active',!showLabels);
-  btn.textContent=showLabels?'이름 숨기기':'이름 보이기';
+  btn.textContent='역명';
   draw();
 }}
+
+function zoomAtCenter(factor) {{
+  scale=Math.max(.12,Math.min(6,scale*factor));
+  draw();
+}}
+
+document.getElementById('fit-btn').addEventListener('click',fitAll);
+document.getElementById('zoom-in-btn').addEventListener('click',()=>zoomAtCenter(1.22));
+document.getElementById('zoom-out-btn').addEventListener('click',()=>zoomAtCenter(.82));
+document.getElementById('label-btn').addEventListener('click',toggleLabels);
+document.getElementById('lod-btn').addEventListener('click',toggleLOD);
 
 window.addEventListener('resize',resize);
 resize();
@@ -1002,20 +1045,78 @@ custom_css = """
 .route-step-time { color: #889; font-size: 10px; }
 .route-step-train { color: #e94560; font-weight: bold; }
 .route-error { color: #e94560; text-align: center; padding: 10px 0; }
+
+/* Readability overrides */
+#search-wrap { order: 1; padding: 12px 16px; background: #0b172a; }
+#search-input { min-height: 42px; padding: 10px 14px; border-radius: 10px; background: #111f36; border-color: #263a59; color: #f8fbff; }
+#search-input::placeholder { color: #7183a1; }
+#search-results { top: calc(100% - 8px); left: 16px; right: 16px; border-radius: 10px; background: #13233c; box-shadow: 0 18px 38px rgba(0,0,0,.35); }
+.search-result-item { padding: 10px 12px; }
+#route-panel { order: 2; padding: 16px; border-bottom: 0; flex: 1; scrollbar-width: thin; scrollbar-color: #2a4267 transparent; }
+#route-panel h3 { font-size: 13px; color: #91a4c3; margin-bottom: 10px; letter-spacing: .02em; }
+.waypoint-wrap { position: relative; gap: 8px; }
+.waypoint-input { min-height: 44px; padding: 10px 12px 10px 38px; background: #111f36; border-color: #263a59; border-radius: 10px; color: #f8fbff; font-size: 14px; }
+.waypoint-input:focus { border-color: #38bdf8; background:#142642; }
+.waypoint-row { position:relative; }
+.waypoint-row::before { position:absolute; left:14px; z-index:1; width:9px; height:9px; border-radius:50%; content:''; background:#38bdf8; box-shadow:0 0 0 4px rgba(56,189,248,.12); }
+.waypoint-row:nth-child(2)::before { background:#f472b6; box-shadow:0 0 0 4px rgba(244,114,182,.12); }
+.remove-btn { width:32px; height:32px; flex:0 0 32px; background:#26182a; border:1px solid #4c284f; border-radius:8px; color:#fb7185; }
+.route-tools { display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:10px; }
+.add-btn { min-height:36px; margin-bottom:0; padding:7px 10px; background:#0e1a2e; border-color:#314665; color:#9db0cc; border-radius:9px; }
+.swap-btn { width:38px; border:1px solid #314665; border-radius:9px; background:#14233d; color:#c7d5e8; cursor:pointer; font-size:16px; }
+.route-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.route-options input, .route-options select { width:100%; min-height:40px; padding:8px 10px; background:#111f36; border-color:#263a59; border-radius:9px; color:#e7edf7; }
+.find-btn { min-height:42px; padding:10px 14px; background:linear-gradient(135deg,#0284c7,#06b6d4); border-radius:10px; font-weight:800; box-shadow:0 8px 22px rgba(14,165,233,.18); }
+#reset-route-btn { min-height:42px; border-radius:10px !important; background:#14233d !important; border-color:#314665 !important; }
+#route-result { color:#ced8e8; }
+.route-step { padding:10px 12px !important; border-radius:0 9px 9px 0; background:#101d32; }
+.route-error { color:#fb7185; }
+#station-detail { margin-top:16px; padding:15px; border:1px solid #263a59; border-radius:13px; background:linear-gradient(145deg,#111f36,#0c1729); }
+#station-detail.empty { color:#7f91ad; }
+.station-kicker { color:#38bdf8; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+#station-detail h2 { margin-top:5px; color:#fff; font-size:21px; letter-spacing:-.04em; }
+.station-sub { margin-top:5px; color:#8fa2bf; font-size:11px; line-height:1.55; }
+.station-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:13px; }
+.station-metric { padding:9px 6px; border-radius:9px; background:#0a1527; text-align:center; }
+.station-metric strong { display:block; color:#f8fbff; font-size:14px; }
+.station-metric span { display:block; margin-top:3px; color:#7183a1; font-size:9px; }
+.station-badges { display:flex; flex-wrap:wrap; gap:5px; margin-top:12px; }
+.station-neighbors { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
+.neighbor-chip { padding:6px 9px; border:1px solid #304766; border-radius:999px; background:#14233d; color:#c9d7e9; cursor:pointer; font-size:11px; }
+.neighbor-chip:hover { border-color:#38bdf8; color:#fff; }
+.badge { padding:4px 8px; border-radius:999px; font-size:10px; }
+@media (max-width:760px) {
+  #canvas-container { left:0 !important; bottom:46vh; }
+  #sidebar { top:auto; width:100% !important; height:46vh; border-right:0; border-top:1px solid #263a59; border-radius:18px 18px 0 0; }
+  #sidebar-header { padding:12px 16px 10px; }
+  #sidebar-header h1 { font-size:17px; }
+  #sidebar-header p { margin-top:3px; }
+  #search-wrap { padding:9px 12px; }
+  #route-panel { padding:12px; }
+  #resizer { display:none; }
+  #map-controls { top:12px; right:12px; gap:5px; padding:6px; }
+  .map-btn { min-width:34px; height:34px; padding:0 8px; }
+  #zoom-badge { right:14px; bottom:calc(46vh + 12px); }
+  #tooltip { display:none !important; }
+}
 """
 
 ui_html = """
   <div id="route-panel">
-    <h3>🛤️ 길찾기</h3>
+    <h3>경로 검색</h3>
     <div id="waypoints" class="waypoint-wrap">
       <div class="waypoint-row">
-        <input type="text" class="waypoint-input" placeholder="출발역" value="구포">
+        <input type="text" class="waypoint-input" placeholder="출발역" list="station-options" autocomplete="off">
       </div>
       <div class="waypoint-row">
-        <input type="text" class="waypoint-input" placeholder="도착역" value="하양">
+        <input type="text" class="waypoint-input" placeholder="도착역" list="station-options" autocomplete="off">
       </div>
     </div>
-    <button id="add-waypoint-btn" class="add-btn">+ 경유지 추가</button>
+    <datalist id="station-options"></datalist>
+    <div class="route-tools">
+      <button id="add-waypoint-btn" class="add-btn">+ 경유지 추가</button>
+      <button id="swap-route-btn" class="swap-btn" title="출발역과 도착역 바꾸기" aria-label="출발역과 도착역 바꾸기">⇅</button>
+    </div>
     
     <div class="route-options">
       <input type="time" id="route-time" value="05:00">
@@ -1026,10 +1127,15 @@ ui_html = """
     </div>
     
     <div class="btn-group" style="display:flex; gap:8px;">
-      <button id="find-route-btn" class="find-btn" style="flex:2;">길찾기</button>
+      <button id="find-route-btn" class="find-btn" style="flex:2;">경로 찾기</button>
       <button id="reset-route-btn" class="reset-btn" style="flex:1; background:#16213e; color:#e0e0e0; border:1px solid #1a4a80; border-radius:20px; font-weight:bold; cursor:pointer;">초기화</button>
     </div>
     <div id="route-result"></div>
+    <section id="station-detail" class="empty" aria-live="polite">
+      <div class="station-kicker">Station details</div>
+      <h2>역을 선택하세요</h2>
+      <p class="station-sub">지도에서 역을 클릭하거나 위 검색창에서 역 이름을 찾아보세요.</p>
+    </section>
   </div>
 """
 
@@ -1255,9 +1361,61 @@ function getPhysicalPath(start, target) {
   return { nodes: [start, target], edges: [fallbackEdge] };
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
+  })[ch]);
+}
+
+function formatClock(minute) {
+  if (minute === null || minute === undefined) return '—';
+  const h = Math.floor(minute / 60) % 24;
+  const m = minute % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function showStationDetail(station) {
+  const panel = document.getElementById('station-detail');
+  if (!panel || !station) return;
+  panel.classList.remove('empty');
+  const badges = station.types.map(type => {
+    const cfg = LINE_CFG[type] || { color:'#475569', label:type };
+    return `<span class="badge" style="background:${cfg.color}">${escapeHtml(cfg.label)}</span>`;
+  }).join('');
+  const neighbors = station.neighbors.map(name =>
+    `<button class="neighbor-chip" data-station="${escapeHtml(name)}">${escapeHtml(name)}</button>`
+  ).join('');
+  const coord = station.hasCoord
+    ? `${station.lat.toFixed(4)}, ${station.lon.toFixed(4)}`
+    : '인접 노드를 기준으로 지도 위치 추정';
+  panel.innerHTML = `
+    <div class="station-kicker">Station details</div>
+    <h2>${escapeHtml(station.id)}역</h2>
+    <p class="station-sub">${coord}</p>
+    <div class="station-metrics">
+      <div class="station-metric"><strong>${station.trainCount}</strong><span>운행 열차</span></div>
+      <div class="station-metric"><strong>${formatClock(station.firstTime)}</strong><span>첫 운행</span></div>
+      <div class="station-metric"><strong>${formatClock(station.lastTime)}</strong><span>마지막 운행</span></div>
+    </div>
+    <div class="station-badges">${badges}</div>
+    <p class="station-sub" style="margin-top:12px">직접 연결된 역 ${station.degree}개</p>
+    <div class="station-neighbors">${neighbors || '<span class="station-sub">연결 정보 없음</span>'}</div>`;
+  panel.querySelectorAll('.neighbor-chip').forEach(button => {
+    button.addEventListener('click', () => {
+      const next = NODES.find(n => n.id === button.dataset.station);
+      if (next) selectStation(next);
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   buildRoutingGraph();
   buildPhysicalGraph();
+  const stationOptions = document.getElementById('station-options');
+  if (stationOptions) {
+    stationOptions.innerHTML = NODES.filter(n => nodePos[n.id])
+      .map(n => `<option value="${escapeHtml(n.id)}"></option>`).join('');
+  }
   function setCurrentTime() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
@@ -1273,11 +1431,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const row = document.createElement('div');
     row.className = 'waypoint-row';
     row.innerHTML = `
-      <input type="text" class="waypoint-input" placeholder="경유지">
+      <input type="text" class="waypoint-input" placeholder="경유지" list="station-options" autocomplete="off">
       <button class="remove-btn">×</button>
     `;
     row.querySelector('.remove-btn').addEventListener('click', () => row.remove());
     waypointsDiv.insertBefore(row, waypointsDiv.lastElementChild);
+  });
+
+  document.getElementById('swap-route-btn').addEventListener('click', () => {
+    const inputs = document.querySelectorAll('.waypoint-input');
+    if (inputs.length < 2) return;
+    const first = inputs[0].value;
+    inputs[0].value = inputs[inputs.length - 1].value;
+    inputs[inputs.length - 1].value = first;
   });
   
   document.getElementById('find-route-btn').addEventListener('click', () => {
@@ -1306,7 +1472,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    let htmlStr = `<div style="color:#fff; margin-bottom:10px;">✅ <b>${minsToTime(res.finalTime)} 도착</b> (환승 ${res.totalTransfers}회)</div>`;
+    const [startHour, startMinute] = timeStr.split(':').map(Number);
+    const duration = res.finalTime - (startHour * 60 + startMinute);
+    const durationText = `${Math.floor(duration / 60)}시간 ${duration % 60}분`;
+    let htmlStr = `<div style="padding:12px; margin-bottom:10px; border:1px solid #285070; border-radius:10px; background:#0d2136; color:#fff;"><b>${minsToTime(res.finalTime)} 도착</b><div style="margin-top:4px; color:#91a4c3; font-size:11px">${durationText} · 환승 ${res.totalTransfers}회</div></div>`;
     
     let prevArrTime = null;
     let pathNodes = new Set();
@@ -1362,10 +1531,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const waypointsDiv = document.getElementById('waypoints');
     waypointsDiv.innerHTML = `
       <div class="waypoint-row">
-        <input type="text" class="waypoint-input" placeholder="출발역" value="구포">
+        <input type="text" class="waypoint-input" placeholder="출발역" list="station-options" autocomplete="off">
       </div>
       <div class="waypoint-row">
-        <input type="text" class="waypoint-input" placeholder="도착역" value="하양">
+        <input type="text" class="waypoint-input" placeholder="도착역" list="station-options" autocomplete="off">
       </div>
     `;
     document.getElementById('route-result').innerHTML = '';
@@ -1375,41 +1544,27 @@ document.addEventListener('DOMContentLoaded', () => {
     searchQuery = '';
     const searchInput = document.getElementById('search-input');
     if (searchInput) searchInput.value = '';
+    highlightPath(new Set(), new Set());
     setCurrentTime();
     fitAll();
   });
 });
 
 function highlightPath(nodesSet, edgesSet) {
-  link
-    .attr("stroke", d => {
-      const edgeId = d.source.id < d.target.id ? `${d.source.id}-${d.target.id}` : `${d.target.id}-${d.source.id}`;
-      return (edgesSet && edgesSet.has(edgeId)) ? "#00f2fe" : (LINE_CFG[d.lines[0]]?.color || "#555");
-    })
-    .attr("stroke-width", d => {
-      const edgeId = d.source.id < d.target.id ? `${d.source.id}-${d.target.id}` : `${d.target.id}-${d.source.id}`;
-      return (edgesSet && edgesSet.has(edgeId)) ? 5 : 1.5;
-    })
-    .attr("opacity", d => {
-      const edgeId = d.source.id < d.target.id ? `${d.source.id}-${d.target.id}` : `${d.target.id}-${d.source.id}`;
-      return (!edgesSet || edgesSet.size === 0 || edgesSet.has(edgeId)) ? 1 : 0.2;
-    });
-    
-  node
-    .attr("fill", d => (nodesSet && nodesSet.has(d.id)) ? "#fff" : (d.is_ktx ? "#ff4757" : "#555"))
-    .attr("r", d => (nodesSet && nodesSet.has(d.id)) ? 6 : (d.is_ktx ? 4.5 : 3.5))
-    .attr("opacity", d => (!nodesSet || nodesSet.size === 0 || nodesSet.has(d.id)) ? 1 : 0.3)
-    .attr("stroke", d => (nodesSet && nodesSet.has(d.id)) ? "#00f2fe" : (d.is_ktx ? "#fff" : "#222"))
-    .attr("stroke-width", d => (nodesSet && nodesSet.has(d.id)) ? 2 : 1);
-    
-  label
-    .attr("opacity", d => {
-       if (!nodesSet || nodesSet.size === 0) return d.is_ktx ? 1 : 0;
-       return nodesSet.has(d.id) ? 1 : 0;
-    })
-    .attr("font-weight", d => (nodesSet && nodesSet.has(d.id)) ? "bold" : "normal")
-    .attr("fill", d => (nodesSet && nodesSet.has(d.id)) ? "#00f2fe" : (d.is_ktx ? "#ddd" : "#888"))
-    .style("text-shadow", d => (nodesSet && nodesSet.has(d.id)) ? "0px 0px 4px #000" : "none");
+  highlightedPathNodes = nodesSet || new Set();
+  highlightedPathEdges = edgesSet || new Set();
+  if (highlightedPathNodes.size > 1) {
+    const positions = [...highlightedPathNodes].map(name => nodePos[name]).filter(Boolean);
+    if (positions.length > 1) {
+      const xs = positions.map(p => p.x), ys = positions.map(p => p.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const width = Math.max(maxX - minX, 80), height = Math.max(maxY - minY, 80);
+      scale = Math.max(.12, Math.min(2.4, Math.min((canvas.width - 120) / width, (canvas.height - 120) / height)));
+      animateCam(-((minX + maxX) / 2) * scale, -((minY + maxY) / 2) * scale);
+    }
+  }
+  draw();
 }
 """
 
@@ -1435,6 +1590,7 @@ html = html.replace('<div id="zoom-badge">', '<div id="resizer"></div>\n<div id=
 resizer_js = """
 const sidebarEl = document.getElementById('sidebar');
 const resizerEl = document.getElementById('resizer');
+const canvasContainerEl = document.getElementById('canvas-container');
 let isResizingPanel = false;
 
 resizerEl.addEventListener('mousedown', (e) => {
@@ -1451,6 +1607,8 @@ document.addEventListener('mousemove', (e) => {
   if (newWidth > window.innerWidth * 0.6) newWidth = window.innerWidth * 0.6; 
   sidebarEl.style.width = newWidth + 'px';
   resizerEl.style.left = newWidth + 'px';
+  canvasContainerEl.style.left = newWidth + 'px';
+  resize();
 });
 
 document.addEventListener('mouseup', () => {
