@@ -1,4 +1,4 @@
-import openpyxl, sys, csv, json, re, os, collections
+import openpyxl, sys, csv, json, re, os, collections, math, heapq, hashlib
 from datetime import time as dt_time
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -11,6 +11,12 @@ FILES = [
     os.path.join(BASE_DIR, 'src', 'Local_timetable.xlsx'),
     os.path.join(BASE_DIR, 'src', 'SRT_timetable.xlsx'),
 ]
+
+FARE_FILES = {
+    'high_speed': os.path.join(BASE_DIR, 'src', 'KTX_SRT_fares_20260922.xlsx'),
+    'conventional': os.path.join(BASE_DIR, 'src', 'Conventional_fares_20260819.xlsx'),
+}
+FARE_CACHE_FILE = os.path.join(BASE_DIR, 'src', 'fare_profiles.json')
 
 CSV_PATH = os.path.join(BASE_DIR, 'src', 'StationLocation_202404.csv')
 
@@ -35,6 +41,8 @@ def clean_station_name(v):
     # 통합 예외 처리
     if s in ('홍성(도착)', '홍성(출발)'):
         return '홍성'
+    if s == '여수EXPO':
+        return '여수엑스포'
         
     if not hangul_pattern.search(s): return None  # 순수 한글 필수
     
@@ -300,6 +308,122 @@ for fpath in FILES:
         all_trips.extend(parsed)
     print(f"  {fname}: 누적 {len(all_trips)}개 열차")
 
+
+def fare_number(value):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)) and value > 0:
+        return int(round(value))
+    if isinstance(value, str):
+        digits = re.sub(r'[^0-9]', '', value)
+        if digits:
+            return int(digits)
+    return None
+
+
+def parse_fare_profiles():
+    """운임표의 각 시트를 별도 계통으로 보존한다.
+
+    같은 역 쌍이라도 경유선에 따라 운임이 다르므로 전역 최솟값으로 합치지 않고,
+    뒤에서 실제 열차의 역 순서와 가장 많이 겹치는 시트를 선택한다.
+    """
+    source_hashes = {}
+    for path in FARE_FILES.values():
+        if not os.path.exists(path):
+            continue
+        digest = hashlib.sha256()
+        with open(path, 'rb') as source_file:
+            for chunk in iter(lambda: source_file.read(1024 * 1024), b''):
+                digest.update(chunk)
+        source_hashes[os.path.basename(path)] = digest.hexdigest()
+
+    if os.path.exists(FARE_CACHE_FILE):
+        with open(FARE_CACHE_FILE, 'r', encoding='utf-8') as cache_file:
+            cached = json.load(cache_file)
+        if cached.get('sourceHashes') == source_hashes:
+            profiles = []
+            for profile in cached.get('profiles', []):
+                profiles.append({
+                    'id': profile['id'],
+                    'category': profile['category'],
+                    'sheet': profile['sheet'],
+                    'stations': set(profile['stations']),
+                    'pairs': {
+                        tuple(key.split('\u0001', 1)): value
+                        for key, value in profile['pairs'].items()
+                    },
+                })
+            print(f"운임 계통: {len(profiles)}개 시트 (캐시)")
+            return profiles
+
+    profiles = []
+    for category, path in FARE_FILES.items():
+        if not os.path.exists(path):
+            print(f"  운임 파일 없음: {path}")
+            continue
+        workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        for sheet in workbook.worksheets:
+            directed = {}
+            stations = set()
+            seen_data = False
+            empty_run = 0
+            for row in sheet.iter_rows(min_col=2, max_col=7, values_only=True):
+                found_in_row = False
+                for offset in (0, 3):
+                    if offset + 2 >= len(row):
+                        continue
+                    start = clean_station_name(row[offset])
+                    end = clean_station_name(row[offset + 1])
+                    fare = fare_number(row[offset + 2])
+                    if not start or not end or fare is None:
+                        continue
+                    directed[(start, end)] = min(fare, directed.get((start, end), fare))
+                    stations.update((start, end))
+                    found_in_row = True
+                    seen_data = True
+                if found_in_row:
+                    empty_run = 0
+                elif seen_data:
+                    empty_run += 1
+                    if empty_run >= 80:
+                        break
+
+            if not directed:
+                continue
+            # 대부분의 표는 한 방향 삼각행렬이므로 역방향 열차에도 같은 운임을 쓴다.
+            # 순환선처럼 반대 방향 값이 명시된 경우에는 해당 값을 우선 보존한다.
+            pairs = dict(directed)
+            for (start, end), fare in directed.items():
+                pairs.setdefault((end, start), fare)
+            profiles.append({
+                'id': f"{category}:{sheet.title}",
+                'category': category,
+                'sheet': sheet.title,
+                'stations': stations,
+                'pairs': pairs,
+            })
+        workbook.close()
+    cache_payload = {
+        'sourceHashes': source_hashes,
+        'profiles': [{
+            'id': profile['id'],
+            'category': profile['category'],
+            'sheet': profile['sheet'],
+            'stations': sorted(profile['stations']),
+            'pairs': {
+                f"{start}\u0001{end}": fare
+                for (start, end), fare in profile['pairs'].items()
+            },
+        } for profile in profiles],
+    }
+    with open(FARE_CACHE_FILE, 'w', encoding='utf-8') as cache_file:
+        json.dump(cache_payload, cache_file, ensure_ascii=False, separators=(',', ':'))
+    print(f"운임 계통: {len(profiles)}개 시트")
+    return profiles
+
+
+fare_profiles = parse_fare_profiles()
+
 # ─────────────────────────────────────────
 # 2. 구간 & 노선 타입 집계
 # ─────────────────────────────────────────
@@ -346,10 +470,14 @@ def primary_type(types_set):
     return '무궁화'
 
 edge_map = collections.defaultdict(set)
+edge_support = collections.Counter()
 node_lines = collections.defaultdict(set)
+service_patterns = collections.Counter()
 
 for t in all_trips:
     lt = get_line_type(t.train_no, t.train_type)
+    pattern = tuple(stop['name'] for stop in t.stops)
+    service_patterns[(lt, pattern)] += 1
     for s in t.stops:
         node_lines[s['name']].add(lt)
     for i in range(len(t.stops)-1):
@@ -357,6 +485,42 @@ for t in all_trips:
         if a == b: continue
         canon = tuple(sorted([a, b]))
         edge_map[canon].add(lt)
+        edge_support[(canon, lt)] += 1
+
+
+def fare_category_for_trip(trip):
+    line_type = get_line_type(trip.train_no, trip.train_type)
+    return 'high_speed' if line_type.startswith('KTX') or line_type == 'SRT' else 'conventional'
+
+
+def select_fare_profile(trip):
+    category = fare_category_for_trip(trip)
+    route_names = [stop['name'] for stop in trip.stops]
+    timed_names = [stop['name'] for stop in trip.stops if stop.get('time') is not None]
+    route_set = set(route_names)
+    best = None
+    best_score = None
+    for profile in fare_profiles:
+        if profile['category'] != category:
+            continue
+        overlap = len(route_set & profile['stations'])
+        if overlap < 2:
+            continue
+        covered_pairs = 0
+        for i in range(len(timed_names) - 1):
+            for j in range(i + 1, len(timed_names)):
+                if (timed_names[i], timed_names[j]) in profile['pairs']:
+                    covered_pairs += 1
+        differentiators = len((route_set - {'서울','용산','영등포','광명','수원','오송','대전','익산','동대구','부산'}) & profile['stations'])
+        score = covered_pairs * 100 + overlap * 12 + differentiators * 8 - abs(len(profile['stations']) - len(route_set))
+        if best_score is None or score > best_score:
+            best_score = score
+            best = profile
+    return best['id'] if best else None
+
+
+for trip in all_trips:
+    trip.fare_profile_id = select_fare_profile(trip)
 
 print(f"\n총 역: {len(node_lines)}, 총 구간: {len(edge_map)}")
 
@@ -428,6 +592,78 @@ station_coords['함평'] = {'lat': 35.0237, 'lon': 126.5391}
 station_coords['군북'] = {'lat': 35.2810, 'lon': 128.3180}
 station_coords['횡천'] = {'lat': 35.0860, 'lon': 127.7980}
 
+
+def geo_distance_km(a, b):
+    ca, cb = station_coords.get(a), station_coords.get(b)
+    if not ca or not cb:
+        return None
+    lat1, lat2 = math.radians(ca['lat']), math.radians(cb['lat'])
+    dlat = lat2 - lat1
+    dlon = math.radians(cb['lon'] - ca['lon'])
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 6371.0 * 2 * math.asin(min(1.0, math.sqrt(h)))
+
+
+def find_alternative_line_path(start, target, line_type, excluded_edge, max_hops=7):
+    adjacency = collections.defaultdict(list)
+    for edge, line_types in edge_map.items():
+        if edge == excluded_edge or line_type not in line_types:
+            continue
+        a, b = edge
+        distance = geo_distance_km(a, b)
+        if distance is None:
+            continue
+        adjacency[a].append((b, distance))
+        adjacency[b].append((a, distance))
+    queue = [(0.0, 0, start, [start])]
+    best = {(start, 0): 0.0}
+    while queue:
+        distance, hops, station, path = heapq.heappop(queue)
+        if station == target and hops >= 2:
+            return distance, path
+        if hops >= max_hops:
+            continue
+        for neighbor, segment_distance in adjacency.get(station, []):
+            if neighbor in path:
+                continue
+            next_distance = distance + segment_distance
+            key = (neighbor, hops + 1)
+            if next_distance >= best.get(key, float('inf')):
+                continue
+            best[key] = next_distance
+            heapq.heappush(queue, (next_distance, hops + 1, neighbor, path + [neighbor]))
+    return None
+
+
+def prune_nonstop_shortcuts():
+    """A-B-C와 A-C가 함께 관측되면 A-C를 별도 물리선으로 그리지 않는다.
+
+    시간표의 무정차 열차가 중간역을 생략해도 같은 계통의 인접 구간으로 이어지게 하되,
+    실제 분기선은 보존하도록 같은 노선 타입·짧은 대체 경로·지리적 우회율을 함께 본다.
+    """
+    removed = []
+    for edge, line_types in list(edge_map.items()):
+        direct_distance = geo_distance_km(*edge)
+        if direct_distance is None or direct_distance < 2.0:
+            continue
+        for line_type in list(line_types):
+            alternative = find_alternative_line_path(edge[0], edge[1], line_type, edge)
+            if not alternative:
+                continue
+            alternative_distance, path = alternative
+            if len(path) <= 2:
+                continue
+            if alternative_distance <= direct_distance * 1.32 + 3.0:
+                line_types.remove(line_type)
+                removed.append((edge, line_type, path))
+        if not line_types:
+            del edge_map[edge]
+    print(f"무정차 지름길 정리: {len(removed)}개 노선 구간을 연속 경로로 통합")
+    return removed
+
+
+pruned_shortcuts = prune_nonstop_shortcuts()
+
 if '편성' in station_coords: del station_coords['편성']
 
 # ─────────────────────────────────────────
@@ -451,6 +687,78 @@ for (a, b) in edge_map:
     station_neighbors[a].add(b)
     station_neighbors[b].add(a)
 
+
+def build_graph_aware_layout():
+    """실제 좌표를 앵커로 두고 혼잡·돌출 노드만 제한적으로 보정한다."""
+    base = {}
+    for station in node_lines:
+        coord = station_coords.get(station)
+        if coord:
+            base[station] = geo_to_xy(coord['lat'], coord['lon'])
+    pos = {name: [xy[0], xy[1]] for name, xy in base.items()}
+    names = sorted(pos)
+
+    smoothable = []
+    for station in names:
+        neighbors = [n for n in station_neighbors[station] if n in pos]
+        if len(neighbors) != 2 or station in hub_stations:
+            continue
+        edge_a = tuple(sorted((station, neighbors[0])))
+        edge_b = tuple(sorted((station, neighbors[1])))
+        if edge_map.get(edge_a, set()) & edge_map.get(edge_b, set()):
+            smoothable.append((station, neighbors[0], neighbors[1]))
+
+    for _ in range(110):
+        force = {name: [0.0, 0.0] for name in names}
+
+        # 실제 위치로 돌아가려는 힘. 허브는 더 강하게 고정한다.
+        for name in names:
+            anchor = 0.075 if name in hub_stations else 0.045
+            force[name][0] += (base[name][0] - pos[name][0]) * anchor
+            force[name][1] += (base[name][1] - pos[name][1]) * anchor
+
+        # 같은 계통의 두 이웃 사이에 있는 역은 선의 중간으로 완만하게 당긴다.
+        for station, left, right in smoothable:
+            target_x = (pos[left][0] + pos[right][0]) / 2
+            target_y = (pos[left][1] + pos[right][1]) / 2
+            force[station][0] += (target_x - pos[station][0]) * 0.055
+            force[station][1] += (target_y - pos[station][1]) * 0.055
+
+        # 수도권처럼 조밀한 구간의 역과 라벨이 겹치지 않도록 충돌만 해소한다.
+        for i, first in enumerate(names):
+            for second in names[i + 1:]:
+                dx = pos[second][0] - pos[first][0]
+                dy = pos[second][1] - pos[first][1]
+                distance = math.hypot(dx, dy)
+                minimum = 46.0 if first in hub_stations or second in hub_stations else 34.0
+                if distance >= minimum:
+                    continue
+                if distance < 0.001:
+                    angle = (sum(map(ord, first + second)) % 360) * math.pi / 180
+                    dx, dy, distance = math.cos(angle), math.sin(angle), 1.0
+                push = (minimum - distance) * 0.11
+                ux, uy = dx / distance, dy / distance
+                force[first][0] -= ux * push
+                force[first][1] -= uy * push
+                force[second][0] += ux * push
+                force[second][1] += uy * push
+
+        for name in names:
+            pos[name][0] += force[name][0] * 0.58
+            pos[name][1] += force[name][1] * 0.58
+            max_shift = 38.0 if name in hub_stations else 72.0
+            dx = pos[name][0] - base[name][0]
+            dy = pos[name][1] - base[name][1]
+            displacement = math.hypot(dx, dy)
+            if displacement > max_shift:
+                pos[name][0] = base[name][0] + dx / displacement * max_shift
+                pos[name][1] = base[name][1] + dy / displacement * max_shift
+
+    return {name: (round(xy[0], 1), round(xy[1], 1)) for name, xy in pos.items()}
+
+
+layout_positions = build_graph_aware_layout()
+
 station_services = collections.defaultdict(lambda: {
     'trains': set(), 'types': set(), 'first': None, 'last': None
 })
@@ -462,8 +770,10 @@ for trip in all_trips:
         service['types'].add(trip.train_type)
         if stop['time'] is not None:
             minute = stop['time'] % (24 * 60)
-            service['first'] = minute if service['first'] is None else min(service['first'], minute)
-            service['last'] = minute if service['last'] is None else max(service['last'], minute)
+            # 철도 영업일은 02:00에 바뀌는 것으로 보고 00:00~01:59를 전날 막차로 정렬한다.
+            service_minute = minute if minute >= 120 else minute + 24 * 60
+            service['first'] = service_minute if service['first'] is None else min(service['first'], service_minute)
+            service['last'] = service_minute if service['last'] is None else max(service['last'], service_minute)
 
 nodes_data = []
 for name, types in sorted(node_lines.items()):
@@ -479,11 +789,13 @@ for name, types in sorted(node_lines.items()):
         'isHub': name in hub_stations,
         'isMajor': bool(ktx_types & types),
         'hasCoord': coord is not None,
+        'layoutX': layout_positions.get(name, (None, None))[0],
+        'layoutY': layout_positions.get(name, (None, None))[1],
         'neighbors': sorted(station_neighbors[name]),
         'degree': len(station_neighbors[name]),
         'trainCount': len(service['trains']),
-        'firstTime': service['first'],
-        'lastTime': service['last']
+        'firstTime': service['first'] % (24 * 60) if service['first'] is not None else None,
+        'lastTime': service['last'] % (24 * 60) if service['last'] is not None else None
     })
 
 edges_data = []
@@ -513,8 +825,23 @@ for trip in all_trips:
     if len(stops_export) > 1:
         # Sort stops by time just in case
         stops_export.sort(key=lambda x: x[1])
-        timetable_export.append([trip.train_no, trip.train_type, stops_export])
+        timetable_export.append([trip.train_no, trip.train_type, stops_export, trip.fare_profile_id])
 timetable_json = json.dumps(timetable_export, ensure_ascii=False)
+
+used_fare_profile_ids = {trip.fare_profile_id for trip in all_trips if trip.fare_profile_id}
+fare_profiles_export = {}
+fare_profile_labels = {}
+for profile in fare_profiles:
+    if profile['id'] not in used_fare_profile_ids:
+        continue
+    fare_profiles_export[profile['id']] = {
+        f"{start}\u0001{end}": fare
+        for (start, end), fare in profile['pairs'].items()
+    }
+    fare_profile_labels[profile['id']] = profile['sheet']
+fare_profiles_json = json.dumps(fare_profiles_export, ensure_ascii=False)
+fare_profile_labels_json = json.dumps(fare_profile_labels, ensure_ascii=False)
+print(f"운임 연결: {sum(1 for trip in all_trips if trip.fare_profile_id)}/{len(all_trips)}개 열차, {len(fare_profiles_export)}개 계통")
 
 html = f"""<!DOCTYPE html>
 <html lang="ko">
@@ -543,15 +870,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline:3px s
 }}
 #sidebar-header h1 {{ font-size:20px; color:#f8fbff; font-weight:800; letter-spacing:-.04em; }}
 #sidebar-header p {{ font-size:12px; color:#91a4c3; margin-top:7px; }}
-#search-wrap {{ padding:10px 14px; border-bottom:1px solid #0f3460; }}
-#search-input {{
-  width:100%; padding:8px 12px;
-  background:#0f3460; border:1px solid #1a4a80;
-  border-radius:20px; color:#e0e0e0;
-  font-size:13px; font-family:'Malgun Gothic',sans-serif; outline:none;
-}}
-#search-input::placeholder {{ color:#556; }}
-#search-input:focus {{ border-color:#e94560; }}
 #legend-area {{ padding:10px 14px; border-bottom:1px solid #0f3460; overflow-y:auto; max-height:260px; }}
 #legend-area h3 {{ font-size:10px; color:#889; letter-spacing:1px; margin-bottom:8px; text-transform:uppercase; }}
 .legend-row {{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px; color:#ccc; }}
@@ -589,18 +907,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline:3px s
   color:#e0e0e0; padding:6px 10px; border-radius:6px;
   font-size:12px; white-space:nowrap; display:none; z-index:100;
 }}
-#search-results {{
-  position:absolute; top:100%; left:0; right:0;
-  background:#0f3460; border:1px solid #1a4a80;
-  border-radius:0 0 8px 8px; max-height:200px; overflow-y:auto;
-  display:none; z-index:200;
-}}
-.search-result-item {{
-  padding:7px 12px; cursor:pointer; font-size:12px; color:#ccc;
-  border-bottom:1px solid #1a4a8044;
-}}
-.search-result-item:hover {{ background:#1a4a80; color:white; }}
-#search-wrap {{ position:relative; }}
 </style>
 </head>
 <body>
@@ -620,10 +926,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline:3px s
     <h1>🚄 전국 철도 노선도</h1>
     <p id="stats-text">Loading...</p>
   </div>
-  <div id="search-wrap">
-    <input type="text" id="search-input" placeholder="🔍 역 이름 검색..." autocomplete="off"/>
-    <div id="search-results"></div>
-  </div>
+  <div id="route-slot"></div>
 </div>
 <div id="zoom-badge">100%</div>
 <div id="tooltip"></div>
@@ -633,6 +936,8 @@ const NODES = {nodes_json};
 const EDGES = {edges_json};
 
 const TIMETABLE = {timetable_json};
+const FARE_PROFILES = {fare_profiles_json};
+const FARE_PROFILE_LABELS = {fare_profile_labels_json};
 
 const LINE_CFG = {linecfg_json};
 const PRIORITY = {priority_json};
@@ -642,7 +947,9 @@ const nodePos = {{}};
 const nodeData = {{}};
 NODES.forEach(n => {{
   nodeData[n.id] = n;
-  if (n.hasCoord && n.lat && n.lon) {{
+  if (Number.isFinite(n.layoutX) && Number.isFinite(n.layoutY)) {{
+    nodePos[n.id] = {{x:n.layoutX, y:n.layoutY}};
+  }} else if (n.hasCoord && n.lat && n.lon) {{
     const lat=n.lat, lon=n.lon;
     const x = (lon - 125.5) / (130.2 - 125.5) * 2000;
     const y = (38.8 - lat) / (38.8 - 33.0) * 2400;
@@ -890,42 +1197,9 @@ container.addEventListener('wheel',e=>{{
   zoomAroundPoint(point.x,point.y,f);
 }},{{passive:false}});
 
-// 검색
-const searchInput=document.getElementById('search-input');
-const searchResults=document.getElementById('search-results');
-searchInput.addEventListener('input',e=>{{
-  searchQuery=e.target.value.trim();
-  highlightNode=null;
-  
-  
-
-  if(searchQuery.length>=1){{
-    const matched=NODES.filter(n=>n.id.includes(searchQuery)&&nodePos[n.id]).slice(0,12);
-    searchResults.innerHTML='';
-    matched.forEach(n=>{{
-      const item=document.createElement('div');
-      item.className='search-result-item';
-      const cfg=LINE_CFG[n.primary]||{{}};
-      item.innerHTML=`<span style="color:${{cfg.color||'#fff'}};font-weight:600">${{n.id}}</span> <span style="color:#556;font-size:10px">${{n.types.map(t=>LINE_CFG[t]?.label||t).join(', ')}}</span>`;
-      item.onclick=()=>selectStation(n);
-      searchResults.appendChild(item);
-    }});
-    searchResults.style.display=matched.length?'block':'none';
-  }} else {{
-    searchResults.style.display='none';
-  }}
-  draw();
-}});
-document.addEventListener('click',e=>{{
-  if(!e.target.closest('#search-wrap')) searchResults.style.display='none';
-}});
-
 function selectStation(n) {{
   highlightNode=n.id;
   searchQuery='';
-  searchInput.value=n.id;
-  searchResults.style.display='none';
-  
   showStationDetail(n);
   
   const pos=nodePos[n.id];
@@ -1052,6 +1326,7 @@ custom_css = """
 #route-result {
   margin-top: 14px; font-size: 12px; color: #ccc; 
 }
+[hidden] { display: none !important; }
 .route-step {
   margin-bottom: 8px; padding-left: 12px; border-left: 2px solid #4facfe;
 }
@@ -1060,17 +1335,8 @@ custom_css = """
 .route-error { color: #e94560; text-align: center; padding: 10px 0; }
 
 /* Readability overrides */
-#search-wrap { order: 1; padding: 12px 16px; background: #0b172a; }
-#search-input { min-height: 42px; padding: 10px 14px; border-radius: 10px; background: #111f36; border-color: #263a59; color: #f8fbff; }
-#search-input::placeholder { color: #7183a1; }
-#search-results { top: calc(100% - 8px); left: 16px; right: 16px; border-radius: 10px; background: #13233c; box-shadow: 0 18px 38px rgba(0,0,0,.35); }
-.search-result-item { padding: 10px 12px; }
-#route-panel { order: 2; padding: 16px; border-bottom: 0; flex: 1; scrollbar-width: thin; scrollbar-color: #2a4267 transparent; }
+#route-panel { order: 1; padding: 16px; border-bottom: 0; flex: 1; scrollbar-width: thin; scrollbar-color: #2a4267 transparent; }
 #route-panel h3 { font-size: 13px; color: #91a4c3; margin-bottom: 10px; letter-spacing: .02em; }
-#click-guide { margin:-2px 0 12px; padding:9px 11px; border:1px solid #263a59; border-radius:9px; background:#0d192c; color:#91a4c3; font-size:11px; line-height:1.45; }
-#click-guide strong { color:#38bdf8; }
-#click-guide[data-step="arrival"] strong { color:#f472b6; }
-#click-guide[data-step="complete"] { border-color:#28627a; color:#c8d7e9; }
 .waypoint-wrap { position: relative; gap: 8px; }
 .waypoint-input { min-height: 44px; padding: 10px 12px 10px 38px; background: #111f36; border-color: #263a59; border-radius: 10px; color: #f8fbff; font-size: 14px; }
 .waypoint-input:focus { border-color: #38bdf8; background:#142642; }
@@ -1108,7 +1374,6 @@ custom_css = """
   #sidebar-header { padding:12px 16px 10px; }
   #sidebar-header h1 { font-size:17px; }
   #sidebar-header p { margin-top:3px; }
-  #search-wrap { padding:9px 12px; }
   #route-panel { padding:12px; }
   #resizer { display:none; }
   #map-controls { top:12px; right:12px; gap:5px; padding:6px; }
@@ -1121,7 +1386,6 @@ custom_css = """
 ui_html = """
   <div id="route-panel">
     <h3>경로 검색</h3>
-    <p id="click-guide" data-step="departure"><strong>① 출발역</strong>을 지도에서 클릭하세요. 다음 클릭은 도착역으로 지정됩니다.</p>
     <div id="waypoints" class="waypoint-wrap">
       <div class="waypoint-row">
         <input type="text" class="waypoint-input" placeholder="출발역" list="station-options" autocomplete="off">
@@ -1141,6 +1405,7 @@ ui_html = """
       <select id="route-mode">
         <option value="TIME">최소 시간</option>
         <option value="TRANSFER">최소 환승</option>
+        <option value="FARE">최소 운임</option>
       </select>
     </div>
     
@@ -1148,11 +1413,11 @@ ui_html = """
       <button id="find-route-btn" class="find-btn" style="flex:2;">경로 찾기</button>
       <button id="reset-route-btn" class="reset-btn" style="flex:1; background:#16213e; color:#e0e0e0; border:1px solid #1a4a80; border-radius:20px; font-weight:bold; cursor:pointer;">초기화</button>
     </div>
-    <div id="route-result"></div>
+    <div id="route-result" hidden></div>
     <section id="station-detail" class="empty" aria-live="polite">
       <div class="station-kicker">Station details</div>
       <h2>역을 선택하세요</h2>
-      <p class="station-sub">지도에서 역을 클릭하거나 위 검색창에서 역 이름을 찾아보세요.</p>
+      <p class="station-sub">지도에서 역을 클릭하면 운행 정보와 연결 역을 확인할 수 있습니다.</p>
     </section>
   </div>
 """
@@ -1171,6 +1436,8 @@ function buildRoutingGraph() {
     const tno = trip[0];
     const ttype = trip[1];
     const stops = trip[2];
+    const fareProfile = trip[3];
+    const tripKey = `${ttype}:${tno}:${fareProfile || ''}`;
     for (let i = 0; i < stops.length - 1; i++) {
       const st = stops[i][0];
       const t = stops[i][1];
@@ -1179,11 +1446,33 @@ function buildRoutingGraph() {
         dep_time: t,
         trip_no: tno,
         trip_type: ttype,
+        trip_key: tripKey,
+        fare_profile: fareProfile,
         stops: stops,
         stop_idx: i
       });
     }
   }
+}
+
+function lookupFare(profileId, startStation, endStation) {
+  if (!profileId || !FARE_PROFILES[profileId]) return null;
+  const value = FARE_PROFILES[profileId][`${startStation}\u0001${endStation}`];
+  return Number.isFinite(value) ? value : null;
+}
+
+function routeScore(mode, arrivalTime, transfers, totalFare) {
+  const comparableFare = totalFare === null ? Number.MAX_SAFE_INTEGER : totalFare;
+  if (mode === 'TRANSFER') return [transfers, arrivalTime, comparableFare];
+  if (mode === 'FARE') return [comparableFare, arrivalTime, transfers];
+  return [arrivalTime, transfers, comparableFare];
+}
+
+function compareScore(a, b) {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
 }
 
 function minsToTime(m) {
@@ -1199,123 +1488,125 @@ class PriorityQueue {
   constructor(compare) { this.data = []; this.compare = compare; }
   push(val) {
     this.data.push(val);
-    this.data.sort(this.compare);
+    let index = this.data.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (this.compare(this.data[index], this.data[parent]) >= 0) break;
+      [this.data[index], this.data[parent]] = [this.data[parent], this.data[index]];
+      index = parent;
+    }
   }
-  pop() { return this.data.shift(); }
+  pop() {
+    if (this.data.length === 1) return this.data.pop();
+    const first = this.data[0];
+    this.data[0] = this.data.pop();
+    let index = 0;
+    while (true) {
+      const left = index * 2 + 1;
+      const right = left + 1;
+      let smallest = index;
+      if (left < this.data.length && this.compare(this.data[left], this.data[smallest]) < 0) smallest = left;
+      if (right < this.data.length && this.compare(this.data[right], this.data[smallest]) < 0) smallest = right;
+      if (smallest === index) break;
+      [this.data[index], this.data[smallest]] = [this.data[smallest], this.data[index]];
+      index = smallest;
+    }
+    return first;
+  }
   isEmpty() { return this.data.length === 0; }
 }
 
 function runDijkstra(startStation, startTimeMins, targetStation, mode) {
   const pq = new PriorityQueue((a, b) => {
-    if (a.c1 !== b.c1) return a.c1 - b.c1;
-    if (a.c2 !== b.c2) return a.c2 - b.c2;
+    const compared = compareScore(a.score, b.score);
+    if (compared !== 0) return compared;
     return a.seq - b.seq;
   });
-  
-  const visited = new Map();
   const bestKnown = new Map();
-  
-  const initC1 = mode === 'TIME' ? startTimeMins : 0;
-  const initC2 = mode === 'TIME' ? 0 : startTimeMins;
-  
-  bestKnown.set(`${startStation}_null`, [initC1, initC2]);
-  
+  const initialScore = routeScore(mode, startTimeMins, 0, 0);
+  bestKnown.set(`${startStation}_null`, initialScore);
   let seqCounter = 0;
   pq.push({
-    c1: initC1, c2: initC2, seq: seqCounter++,
+    score: initialScore, seq: seqCounter++, totalFare: 0,
     curTime: startTimeMins, curStation: startStation, curTrain: null, path: []
   });
-  
-  let bestArrival = null;
-  let bestPath = null;
   const maxTimeLimit = startTimeMins + MAX_HOURS * 60;
-  
+
   while (!pq.isEmpty()) {
-    const { c1, c2, curTime, curStation, curTrain, path } = pq.pop();
-    
+    const { score, curTime, curStation, curTrain, path, totalFare } = pq.pop();
     if (curTime > maxTimeLimit) continue;
-    
-    if (curStation === targetStation) {
-      if (!bestArrival || (c1 < bestArrival[0] || (c1 === bestArrival[0] && c2 < bestArrival[1]))) {
-        bestArrival = [c1, c2];
-        bestPath = path;
-        if (mode === 'TIME') break;
-      }
-      continue;
-    }
-    
     const stateKey = `${curStation}_${curTrain}`;
-    if (visited.has(stateKey)) {
-      const v = visited.get(stateKey);
-      if (v[0] <= c1 && v[1] <= c2) continue;
+    const knownScore = bestKnown.get(stateKey);
+    if (knownScore && compareScore(score, knownScore) > 0) continue;
+
+    if (curStation === targetStation) {
+      return {
+        score, path, finalTime: curTime,
+        totalTransfers: Math.max(0, path.length - 1), totalFare
+      };
     }
-    visited.set(stateKey, [c1, c2]);
-    
+
     const deps = stationDepartures[curStation] || [];
     for (const dep of deps) {
-      const isSameTrain = (curTrain === dep.trip_no);
+      const isSameTrain = (curTrain === dep.trip_key);
       let reqTime = curTime;
       if (!isSameTrain && curTrain !== null) {
         reqTime += TRANSFER_MINS;
       }
-      
-      const timeOfDay = reqTime % 1440;
-      let actualDepTime = Math.floor(reqTime / 1440) * 1440 + dep.dep_time;
-      if (dep.dep_time < timeOfDay) {
+
+      const scheduledDeparture = dep.dep_time % 1440;
+      let actualDepTime = Math.floor(reqTime / 1440) * 1440 + scheduledDeparture;
+      if (actualDepTime < reqTime) {
         actualDepTime += 1440;
       }
-      
       if (actualDepTime - curTime > MAX_HOURS * 60) continue;
-      
+
       if (actualDepTime >= reqTime) {
         for (let nextIdx = dep.stop_idx + 1; nextIdx < dep.stops.length; nextIdx++) {
           const nextStation = dep.stops[nextIdx][0];
           const arrTimeRaw = dep.stops[nextIdx][1];
-          
-          const arrTimeOfDay = actualDepTime % 1440;
-          let arrT = Math.floor(actualDepTime / 1440) * 1440 + arrTimeRaw;
-          if (arrTimeRaw < arrTimeOfDay) {
-            arrT += 1440;
-          }
-          
-          let transfers = mode === 'TIME' ? c2 : c1;
-          if (!isSameTrain && curTrain !== null) transfers++;
-          
-          const newC1 = mode === 'TIME' ? arrT : transfers;
-          const newC2 = mode === 'TIME' ? transfers : arrT;
-          
-          const nextState = `${nextStation}_${dep.trip_no}`;
-          if (bestKnown.has(nextState)) {
-            const bk = bestKnown.get(nextState);
-            if (bk[0] <= newC1 && bk[1] <= newC2) continue;
-          }
-          bestKnown.set(nextState, [newC1, newC2]);
-          
+          const arrT = actualDepTime + (arrTimeRaw - dep.dep_time);
           const newPath = [...path];
           if (!isSameTrain) {
+            const legFare = lookupFare(dep.fare_profile, curStation, nextStation);
+            if (mode === 'FARE' && legFare === null) continue;
             newPath.push({
               trip_no: dep.trip_no, trip_type: dep.trip_type,
+              trip_key: dep.trip_key, fare_profile: dep.fare_profile, fare: legFare,
               b_st: curStation, b_t: actualDepTime, b_idx: dep.stop_idx,
               a_st: nextStation, a_t: arrT, a_idx: nextIdx, stops: dep.stops
             });
           } else {
             const lastLeg = newPath[newPath.length - 1];
+            const legFare = lookupFare(dep.fare_profile, lastLeg.b_st, nextStation);
+            if (mode === 'FARE' && legFare === null) continue;
             newPath[newPath.length - 1] = {
               ...lastLeg,
-              a_st: nextStation, a_t: arrT, a_idx: nextIdx
+              a_st: nextStation, a_t: arrT, a_idx: nextIdx, fare: legFare
             };
           }
-          
+
+          const fares = newPath.map(leg => leg.fare);
+          const newTotalFare = fares.every(value => value !== null)
+            ? fares.reduce((sum, value) => sum + value, 0)
+            : null;
+          const transfers = Math.max(0, newPath.length - 1);
+          const nextScore = routeScore(mode, arrT, transfers, newTotalFare);
+          const nextState = `${nextStation}_${dep.trip_key}`;
+          const previousScore = bestKnown.get(nextState);
+          if (previousScore && compareScore(previousScore, nextScore) <= 0) continue;
+          bestKnown.set(nextState, nextScore);
+
           pq.push({
-            c1: newC1, c2: newC2, seq: seqCounter++,
-            curTime: arrT, curStation: nextStation, curTrain: dep.trip_no, path: newPath
+            score: nextScore, seq: seqCounter++, totalFare: newTotalFare,
+            curTime: arrT, curStation: nextStation, curTrain: dep.trip_key, path: newPath
           });
         }
       }
     }
   }
-  
-  return { cost: bestArrival, path: bestPath };
+
+  return { score: null, path: null, finalTime: null, totalTransfers: null, totalFare: null };
 }
 
 function findFixedRoute(waypoints, startTimeStr, mode) {
@@ -1325,24 +1616,26 @@ function findFixedRoute(waypoints, startTimeStr, mode) {
   let currentStation = waypoints[0];
   let fullPath = [];
   let totalTransfers = 0;
+  let totalFare = 0;
+  let fareKnown = true;
   
   for (let i = 1; i < waypoints.length; i++) {
     const nextStation = waypoints[i];
     const res = runDijkstra(currentStation, currentTime, nextStation, mode);
-    if (!res.cost) {
-      return { error: `${currentStation} ➔ ${nextStation} 구간 연결 노선이 없습니다.` };
+    if (!res.score) {
+      const detail = mode === 'FARE' ? '운임표가 연결되는 경로가 없습니다.' : '연결 노선이 없습니다.';
+      return { error: `${currentStation} ➔ ${nextStation} 구간에 ${detail}` };
     }
-    
-    let transfers = mode === 'TIME' ? res.cost[1] : res.cost[0];
-    let arrTime = mode === 'TIME' ? res.cost[0] : res.cost[1];
-    
-    totalTransfers += transfers;
-    currentTime = arrTime;
+
+    totalTransfers += res.totalTransfers;
+    if (res.totalFare === null) fareKnown = false;
+    else totalFare += res.totalFare;
+    currentTime = res.finalTime;
     currentStation = nextStation;
     fullPath = fullPath.concat(res.path);
   }
-  
-  return { path: fullPath, totalTransfers, finalTime: currentTime };
+
+  return { path: fullPath, totalTransfers, finalTime: currentTime, totalFare: fareKnown ? totalFare : null };
 }
 
 let physicalAdj = {};
@@ -1392,11 +1685,24 @@ function formatClock(minute) {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
-function updateClickGuide(step, message) {
-  const guide = document.getElementById('click-guide');
-  if (!guide) return;
-  guide.dataset.step = step;
-  guide.innerHTML = message;
+function formatFare(value) {
+  return value === null || value === undefined ? '운임 미확인' : `${Number(value).toLocaleString('ko-KR')}원`;
+}
+
+function showDetailView() {
+  const result = document.getElementById('route-result');
+  const detail = document.getElementById('station-detail');
+  if (result) result.hidden = true;
+  if (detail) detail.hidden = false;
+  const exportButton = document.getElementById('export-itinerary-btn');
+  if (exportButton) exportButton.style.display = 'none';
+}
+
+function showRouteView() {
+  const result = document.getElementById('route-result');
+  const detail = document.getElementById('station-detail');
+  if (result) result.hidden = false;
+  if (detail) detail.hidden = true;
 }
 
 function assignStationFromMap(station) {
@@ -1408,26 +1714,24 @@ function assignStationFromMap(station) {
   if (!departure.value.trim() || arrival.value.trim()) {
     departure.value = station.id;
     arrival.value = '';
-    document.getElementById('route-result').innerHTML = '';
-    const exportButton = document.getElementById('export-itinerary-btn');
-    if (exportButton) exportButton.style.display = 'none';
+    const result = document.getElementById('route-result');
+    result.innerHTML = '';
+    result.hidden = true;
     highlightPath(new Set(), new Set());
-    updateClickGuide('arrival', `<strong>② 도착역</strong>을 클릭하세요. 출발역은 ${escapeHtml(station.id)}역입니다.`);
     return;
   }
 
   if (departure.value.trim() === station.id) {
-    updateClickGuide('arrival', `<strong>② 도착역</strong>은 출발역과 다른 역을 선택하세요.`);
     return;
   }
 
   arrival.value = station.id;
-  updateClickGuide('complete', `<strong>${escapeHtml(departure.value)} → ${escapeHtml(station.id)}</strong> 경로가 지정됐습니다. 시간과 기준을 확인한 뒤 경로 찾기를 누르세요.`);
 }
 
 function showStationDetail(station) {
   const panel = document.getElementById('station-detail');
   if (!panel || !station) return;
+  showDetailView();
   panel.classList.remove('empty');
   const badges = station.types.map(type => {
     const cfg = LINE_CFG[type] || { color:'#475569', label:type };
@@ -1445,8 +1749,8 @@ function showStationDetail(station) {
     <p class="station-sub">${coord}</p>
     <div class="station-metrics">
       <div class="station-metric"><strong>${station.trainCount}</strong><span>운행 열차</span></div>
-      <div class="station-metric"><strong>${formatClock(station.firstTime)}</strong><span>첫 운행</span></div>
-      <div class="station-metric"><strong>${formatClock(station.lastTime)}</strong><span>마지막 운행</span></div>
+      <div class="station-metric"><strong>${formatClock(station.firstTime)}</strong><span>첫차 · 02시 기준</span></div>
+      <div class="station-metric"><strong>${formatClock(station.lastTime)}</strong><span>막차 · 02시 기준</span></div>
     </div>
     <div class="station-badges">${badges}</div>
     <p class="station-sub" style="margin-top:12px">직접 연결된 역 ${station.degree}개</p>
@@ -1495,9 +1799,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const first = inputs[0].value;
     inputs[0].value = inputs[inputs.length - 1].value;
     inputs[inputs.length - 1].value = first;
-    if (inputs[0].value && inputs[inputs.length - 1].value) {
-      updateClickGuide('complete', `<strong>${escapeHtml(inputs[0].value)} → ${escapeHtml(inputs[inputs.length - 1].value)}</strong> 순서로 변경했습니다.`);
-    }
   });
   
   document.getElementById('find-route-btn').addEventListener('click', () => {
@@ -1519,6 +1820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const res = findFixedRoute(inputs, timeStr, mode);
     const resultDiv = document.getElementById('route-result');
+    showRouteView();
     
     if (res.error) {
       resultDiv.innerHTML = `<div class="route-error">❌ ${res.error}</div>`;
@@ -1529,7 +1831,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const [startHour, startMinute] = timeStr.split(':').map(Number);
     const duration = res.finalTime - (startHour * 60 + startMinute);
     const durationText = `${Math.floor(duration / 60)}시간 ${duration % 60}분`;
-    let htmlStr = `<div style="padding:12px; margin-bottom:10px; border:1px solid #285070; border-radius:10px; background:#0d2136; color:#fff;"><b>${minsToTime(res.finalTime)} 도착</b><div style="margin-top:4px; color:#91a4c3; font-size:11px">${durationText} · 환승 ${res.totalTransfers}회</div></div>`;
+    let htmlStr = `<div style="padding:12px; margin-bottom:10px; border:1px solid #285070; border-radius:10px; background:#0d2136; color:#fff;"><b>${minsToTime(res.finalTime)} 도착</b><div style="margin-top:4px; color:#91a4c3; font-size:11px">${durationText} · 환승 ${res.totalTransfers}회 · ${formatFare(res.totalFare)}</div><div style="margin-top:4px; color:#667b9b; font-size:10px">일반실 운임표 기준 · 할인 및 좌석 등급 제외</div></div>`;
     
     let prevArrTime = null;
     let pathNodes = new Set();
@@ -1561,7 +1863,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       htmlStr += `<div class="route-step" style="border-left: 3px solid ${lineBorderColor}; margin-bottom:10px; padding-left:10px;">
         <div class="route-step-train" style="color:${trainTextColor}; font-size:13px; font-weight:700;">[${minsToTime(leg.b_t)}] ${leg.b_st} ➔ [${minsToTime(leg.a_t)}] ${leg.a_st}</div>
-        <div class="route-step-time" style="color:#aaa; font-size:11px; margin-top:2px;">${displayTrainType} #${leg.trip_no}</div>
+        <div class="route-step-time" style="color:#aaa; font-size:11px; margin-top:2px;">${displayTrainType} #${leg.trip_no} · ${formatFare(leg.fare)}</div>
       </div>`;
       prevArrTime = leg.a_t;
       
@@ -1592,14 +1894,10 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
     document.getElementById('route-result').innerHTML = '';
-    pathNodes = new Set();
-    pathEdges = new Set();
     highlightNode = null;
     searchQuery = '';
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) searchInput.value = '';
     highlightPath(new Set(), new Set());
-    updateClickGuide('departure', '<strong>① 출발역</strong>을 지도에서 클릭하세요. 다음 클릭은 도착역으로 지정됩니다.');
+    showDetailView();
     setCurrentTime();
     fitAll();
   });
@@ -1624,7 +1922,7 @@ function highlightPath(nodesSet, edgesSet) {
 """
 
 html = html.replace('</style>', custom_css + '</style>')
-html = html.replace('<div id="search-wrap">', ui_html + '\n  <div id="search-wrap">')
+html = html.replace('<div id="route-slot"></div>', ui_html)
 html = html.replace('</script>\n</body>', dijkstra_js + '\n</script>\n</body>')
 
 # ---------------------------------------------------------
@@ -1686,7 +1984,7 @@ html = html.replace('</head>', '<script src="https://cdnjs.cloudflare.com/ajax/l
 export_btn_html = """
 <button id="export-itinerary-btn" class="find-btn" style="margin-top: 15px; display: none; background: linear-gradient(135deg, #11998e, #38ef7d);">📸 일정 이미지로 저장</button>
 """
-html = html.replace('<div id="route-result"></div>', '<div id="route-result"></div>\n' + export_btn_html)
+html = html.replace('<div id="route-result" hidden></div>', '<div id="route-result" hidden></div>\n' + export_btn_html)
 
 # 3. 이미지 저장 로직 및 버튼 이벤트 JS 주입
 export_js = """
