@@ -1429,6 +1429,10 @@ dijkstra_js = """
 let stationDepartures = {};
 const MAX_HOURS = 168;
 const TRANSFER_MINS = 10;
+const FARE_MAX_TRANSFER_WAIT = 180;
+const FARE_MIN_EXTRA_MINS = 120;
+const FARE_MAX_EXTRA_MINS = 360;
+const FARE_MAX_TOTAL_MINS = 24 * 60;
 
 function buildRoutingGraph() {
   stationDepartures = {};
@@ -1516,7 +1520,7 @@ class PriorityQueue {
   isEmpty() { return this.data.length === 0; }
 }
 
-function runDijkstra(startStation, startTimeMins, targetStation, mode) {
+function runDijkstra(startStation, startTimeMins, targetStation, mode, options = {}) {
   const pq = new PriorityQueue((a, b) => {
     const compared = compareScore(a.score, b.score);
     if (compared !== 0) return compared;
@@ -1530,7 +1534,12 @@ function runDijkstra(startStation, startTimeMins, targetStation, mode) {
     score: initialScore, seq: seqCounter++, totalFare: 0,
     curTime: startTimeMins, curStation: startStation, curTrain: null, path: []
   });
-  const maxTimeLimit = startTimeMins + MAX_HOURS * 60;
+  const maxTimeLimit = Math.min(
+    startTimeMins + MAX_HOURS * 60,
+    options.maxArrivalTime ?? Number.POSITIVE_INFINITY
+  );
+  const maxTransferWait = options.maxTransferWait ?? Number.POSITIVE_INFINITY;
+  const maxTransfers = options.maxTransfers ?? Number.POSITIVE_INFINITY;
 
   while (!pq.isEmpty()) {
     const { score, curTime, curStation, curTrain, path, totalFare } = pq.pop();
@@ -1560,12 +1569,14 @@ function runDijkstra(startStation, startTimeMins, targetStation, mode) {
         actualDepTime += 1440;
       }
       if (actualDepTime - curTime > MAX_HOURS * 60) continue;
+      if (!isSameTrain && curTrain !== null && actualDepTime - curTime > maxTransferWait) continue;
 
       if (actualDepTime >= reqTime) {
         for (let nextIdx = dep.stop_idx + 1; nextIdx < dep.stops.length; nextIdx++) {
           const nextStation = dep.stops[nextIdx][0];
           const arrTimeRaw = dep.stops[nextIdx][1];
           const arrT = actualDepTime + (arrTimeRaw - dep.dep_time);
+          if (arrT > maxTimeLimit) continue;
           const newPath = [...path];
           if (!isSameTrain) {
             const legFare = lookupFare(dep.fare_profile, curStation, nextStation);
@@ -1591,6 +1602,7 @@ function runDijkstra(startStation, startTimeMins, targetStation, mode) {
             ? fares.reduce((sum, value) => sum + value, 0)
             : null;
           const transfers = Math.max(0, newPath.length - 1);
+          if (transfers > maxTransfers) continue;
           const nextScore = routeScore(mode, arrT, transfers, newTotalFare);
           const nextState = `${nextStation}_${dep.trip_key}`;
           const previousScore = bestKnown.get(nextState);
@@ -1621,9 +1633,34 @@ function findFixedRoute(waypoints, startTimeStr, mode) {
   
   for (let i = 1; i < waypoints.length; i++) {
     const nextStation = waypoints[i];
-    const res = runDijkstra(currentStation, currentTime, nextStation, mode);
+    let res;
+    if (mode === 'FARE') {
+      const fastest = runDijkstra(currentStation, currentTime, nextStation, 'TIME');
+      if (!fastest.score) {
+        return { error: `${currentStation} ➔ ${nextStation} 구간에 연결 노선이 없습니다.` };
+      }
+
+      const fastestDuration = fastest.finalTime - currentTime;
+      const allowedExtra = Math.min(
+        FARE_MAX_EXTRA_MINS,
+        Math.max(FARE_MIN_EXTRA_MINS, Math.round(fastestDuration * 0.5))
+      );
+      const maxArrivalTime = Math.min(
+        currentTime + FARE_MAX_TOTAL_MINS,
+        fastest.finalTime + allowedExtra
+      );
+      res = runDijkstra(currentStation, currentTime, nextStation, mode, {
+        maxArrivalTime,
+        maxTransferWait: FARE_MAX_TRANSFER_WAIT,
+        maxTransfers: Math.min(4, fastest.totalTransfers + 2)
+      });
+    } else {
+      res = runDijkstra(currentStation, currentTime, nextStation, mode);
+    }
     if (!res.score) {
-      const detail = mode === 'FARE' ? '운임표가 연결되는 경로가 없습니다.' : '연결 노선이 없습니다.';
+      const detail = mode === 'FARE'
+        ? '현실적인 환승 시간 안에서 운임표가 연결되는 경로가 없습니다.'
+        : '연결 노선이 없습니다.';
       return { error: `${currentStation} ➔ ${nextStation} 구간에 ${detail}` };
     }
 
@@ -1831,7 +1868,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const [startHour, startMinute] = timeStr.split(':').map(Number);
     const duration = res.finalTime - (startHour * 60 + startMinute);
     const durationText = `${Math.floor(duration / 60)}시간 ${duration % 60}분`;
-    let htmlStr = `<div style="padding:12px; margin-bottom:10px; border:1px solid #285070; border-radius:10px; background:#0d2136; color:#fff;"><b>${minsToTime(res.finalTime)} 도착</b><div style="margin-top:4px; color:#91a4c3; font-size:11px">${durationText} · 환승 ${res.totalTransfers}회 · ${formatFare(res.totalFare)}</div><div style="margin-top:4px; color:#667b9b; font-size:10px">일반실 운임표 기준 · 할인 및 좌석 등급 제외</div></div>`;
+    const fareRule = mode === 'FARE'
+      ? ' · 최단 경로 대비 최대 6시간 이내 · 환승 대기 3시간 이하'
+      : '';
+    let htmlStr = `<div style="padding:12px; margin-bottom:10px; border:1px solid #285070; border-radius:10px; background:#0d2136; color:#fff;"><b>${minsToTime(res.finalTime)} 도착</b><div style="margin-top:4px; color:#91a4c3; font-size:11px">${durationText} · 환승 ${res.totalTransfers}회 · ${formatFare(res.totalFare)}</div><div style="margin-top:4px; color:#667b9b; font-size:10px">일반실 운임표 기준 · 할인 및 좌석 등급 제외${fareRule}</div></div>`;
     
     let prevArrTime = null;
     let pathNodes = new Set();
